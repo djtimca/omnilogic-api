@@ -1,0 +1,7 @@
+<Request>
+  <Name>Login</Name>
+  <Parameters>
+    <Parameter name="UserName" dataType="string">{username}</Parameter>
+    <Parameter name="Password" dataType="string">{password}</Parameter>
+  </Parameters>
+</Request>
