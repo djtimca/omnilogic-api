@@ -1,99 +1,67 @@
 import time
 import json
 import requests
-import xmltodict
 import collections
 from xml.etree import ElementTree
+from xml.etree.ElementTree import Element, SubElement, Comment, tostring
 
 
 class OmniLogic:
-    def __init__(self, username, password, systemid):
+    def __init__(self, username, password):
         self.username = username
         self.password = password
-        self.systemid = systemid
+        self.systemid = ''
+        self.token = ''
         self.verbose = True
         self.logged_in = False
 
+    #Build Request - Pass name of method and dict of params
+    def buildRequest(self,requestName,params):
+
+        req = Element('Request')
+        reqName = SubElement(req,'Name')
+        reqName.text = requestName
+        paramTag = SubElement(req,'Parameters')
+
+        for p in params.keys():
+            param = SubElement(paramTag,'Parameter', name=p,dataType="string")
+            param.text = params[p]
+        
+        xml = ElementTree.tostring(req).decode()
+        print (xml)
+        return xml
+
+    #Generic method to call API.
+    def call_api(self,methodName, params):
+       
+        url = "https://app1.haywardomnilogic.com/HAAPI/HomeAutomation/API.ashx"
+        payload = self.buildRequest(methodName,params) 
+        headers = {
+            'content-type': "text/xml",
+            'cache-control': "no-cache",
+            }
+
+        response = requests.request("POST", url, data=payload, headers=headers)
+
+        print (response.text)
+        return(response.content)
+
+
     def connect(self):
-        connect_response = self.call_api("login")
+        
+        params = {'UserName': self.username, 'Password': self.password}
+        response = self.call_api('Login',params)
+        responseXML = ElementTree.fromstring(response)
+        self.token = responseXML.find("./Parameters/Parameter[@name='Token']").text
 
-        if connect_response is None:
-            return False
-
-        self.token = self.get_login_token(connect_response)
         if self.token is None:
             return False
 
         self.logged_in = True
 
-        return None  ### REMOVE ###
-        # return self.get_status()
 
-    def get_status(self):
-        get_status_response = self.call_api("status")
 
-        if get_status_response is None:
-            return False
-
-        self.current_status = get_status_response
-
-        return None
-
-    def call_api(self, request_type, format_params=None):
-        url = "https://app1.haywardomnilogic.com/HAAPI/HomeAutomation/API.ashx"
-        if request_type == "login":
-            request_xml = """<?xml version="1.0" encoding="UTF-8"?>
-                             <Request>
-                             <Name>Login</Name>
-                             <Parameters>
-                               <Parameter name="UserName" dataType="string">{username}</Parameter>
-                               <Parameter name="Password" dataType="string">{password}</Parameter>
-                             </Parameters>
-                             </Request>""".format(
-                username=self.username, password=self.password
-            )
-        if request_type == "status":
-            request_xml = """<?xml version="1.0" encoding="utf-8"?>
-                            <Request>
-                            <Name>GetTelemetryData</Name>
-                            <Parameters>
-                              <Parameter name="Token" dataType="String">{token}</Parameter>
-                              <Parameter name="MspSystemID" dataType="String">{systemid}</Parameter>
-                            </Parameters>
-                            </Request>
-                            """.format(
-                token=self.token, systemid=self.systemid
-            )
-
-        # if self.logged_in:
-        #     format_params["token"] = self.token
-
-        if self.verbose:
-            print(request_xml)
-
-        r = requests.post(url, data=request_xml)
-
-        if self.verbose:
-            print(request_type + ": " + r.text)
-
-        if "xml version" in r.text:
-            fixed_output = r.text[38:].lower()
-            print("xml found" + fixed_output)
-        else:
-            fixed_output = r.text.lower()
-            print("no xml found" + fixed_output)
-
-        if "You haven" in fixed_output:
-            return None
-
-        return xmltodict.parse(fixed_output)
-
-    def get_login_token(self, response):
-
-        lines = response["response"]["parameters"]["parameter"]
-
-        for line in lines:
-            if line["@name"] == "token":
-                return line["#text"]
-
-        return None
+#put yo creds in to test
+c = OmniLogic(username='',password='')
+c.connect()
+print(c.token)
