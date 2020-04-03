@@ -29,10 +29,10 @@ class OmniLogic:
                 datatype=""
 
                 if (type(item[p]) == int):
-                    print("int check")
+                    #print("int check")
                     datatype = "int"
                 elif (type(item[p]) == str):
-                    print("str check")
+                    #print("str check")
                     datatype = "string"
                 else:
                     print("Couldn't determine datatype, exiting.")
@@ -79,9 +79,14 @@ class OmniLogic:
 
         params = [{'Token': self.token}, {'UserID': self.userid}]
         response = self.call_api('GetSiteList',params)
-
+        responseXML = ElementTree.fromstring(response)
+        self.systemid = int(responseXML.find("./Parameters/Parameter/Item/Property[@name='MspSystemID']").text)
         
-    #def get_msp_config_file(self):
+    def get_msp_config_file(self):
+        assert (self.token != ''), "No login token"
+
+        params = [{'Token': self.token}, {'MspSystemID': self.systemid}, {'Version': "0"}]
+        response = self.call_api('GetMspConfigFile',params)
 
     #def get_telemetry_data(self):
 
@@ -90,5 +95,6 @@ class OmniLogic:
 #put yo creds in to test
 c = OmniLogic(username='',password='')
 c.connect()
-print("\n" + c.token)
+print("\nToken: " + c.token)
 c.get_site_list()
+c.get_msp_config_file()
