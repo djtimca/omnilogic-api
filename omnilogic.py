@@ -11,6 +11,7 @@ class OmniLogic:
         self.username = username
         self.password = password
         self.systemid = ''
+        self.userid = ''
         self.token = ''
         self.verbose = True
         self.logged_in = False
@@ -23,12 +24,25 @@ class OmniLogic:
         reqName.text = requestName
         paramTag = SubElement(req,'Parameters')
 
-        for p in params.keys():
-            param = SubElement(paramTag,'Parameter', name=p,dataType="string")
-            param.text = params[p]
+        for item in params:
+            for p in item.keys():
+                datatype=""
+
+                if (type(item[p]) == int):
+                    print("int check")
+                    datatype = "int"
+                elif (type(item[p]) == str):
+                    print("str check")
+                    datatype = "string"
+                else:
+                    print("Couldn't determine datatype, exiting.")
+                    return None
+
+                param = SubElement(paramTag,'Parameter', name=p, dataType=datatype)
+                param.text = str(item[p])
         
         xml = ElementTree.tostring(req).decode()
-        print (xml)
+        print ("\n" + xml + "\n")
         return xml
 
     #Generic method to call API.
@@ -49,19 +63,32 @@ class OmniLogic:
 
     def connect(self):
         
-        params = {'UserName': self.username, 'Password': self.password}
+        params = [{'UserName': self.username, 'Password': self.password}]
         response = self.call_api('Login',params)
         responseXML = ElementTree.fromstring(response)
         self.token = responseXML.find("./Parameters/Parameter[@name='Token']").text
+        self.userid = int(responseXML.find("./Parameters/Parameter[@name='UserID']").text)
 
         if self.token is None:
             return False
 
         self.logged_in = True
+ 
+    def get_site_list(self):
+        assert (self.token != ''), "No login token"
 
+        params = [{'Token': self.token}, {'UserID': self.userid}]
+        response = self.call_api('GetSiteList',params)
 
+        
+    #def get_msp_config_file(self):
+
+    #def get_telemetry_data(self):
+
+    #def get_alarm_list(self):
 
 #put yo creds in to test
 c = OmniLogic(username='',password='')
 c.connect()
-print(c.token)
+print("\n" + c.token)
+c.get_site_list()
