@@ -1,9 +1,22 @@
 import time
 import json
 import requests
+from requests.exceptions import ConnectionError as ConnectError, HTTPError, Timeout
+import xmltodict
 import collections
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element, SubElement, Comment, tostring
+import asyncio
+import logging
+
+HAYWARD_API_URL = "https://app1.haywardomnilogic.com/HAAPI/HomeAutomation/API.ashx"
+# CONNECT_PARAMS = [
+#     UserName = "",
+#     Password = ""
+# ]
+
+# get_msp_config_file = {}
+_LOGGER = logging.getLogger(__name__)
 
 
 class OmniLogic:
@@ -12,60 +25,101 @@ class OmniLogic:
         self.password = password
         self.systemid = ""
         self.userid = ""
-        self.token = ""
+        self.token = "1d320b9beb934c2cb42dd8f79532fa8b"
         self.verbose = True
         self.logged_in = False
+        self.retry = 5
 
-    # Build Request - Pass name of method and dict of params
     def buildRequest(self, requestName, params):
+        """
+        Build Request - Pass name of method and dict of params
+        """
 
         req = Element("Request")
         reqName = SubElement(req, "Name")
         reqName.text = requestName
         paramTag = SubElement(req, "Parameters")
 
-        for item in params:
-            for p in item.keys():
-                datatype = ""
+        print(params)
+        for k, v in params.items():
+            datatype = ""
 
-                if type(item[p]) == int:
-                    # print("int check")
-                    datatype = "int"
-                elif type(item[p]) == str:
-                    # print("str check")
-                    datatype = "string"
-                elif type(item[p]) == bool:
-                    datatype = "bool"
-                else:
-                    print("Couldn't determine datatype, exiting.")
-                    return None
+            if type(v) == int:
+                datatype = "int"
+            elif type(v) == str:
+                datatype = "string"
+            elif type(v) == bool:
+                datatype = "bool"
+            else:
+                print("Couldn't determine datatype, exiting.")
+                return None
 
-                param = SubElement(paramTag, "Parameter", name=p, dataType=datatype)
-                param.text = str(item[p])
+            param = SubElement(paramTag, "Parameter", name=k, dataType=datatype)
+            param.text = str(v)
 
         xml = ElementTree.tostring(req).decode()
         print("\n" + xml + "\n")
         return xml
 
-    # Generic method to call API.
     def call_api(self, methodName, params):
-
-        url = "https://app1.haywardomnilogic.com/HAAPI/HomeAutomation/API.ashx"
+        """
+        Generic method to call API.
+        """
         payload = self.buildRequest(methodName, params)
         headers = {
             "content-type": "text/xml",
             "cache-control": "no-cache",
         }
+        try:
+            response = requests.request(
+                "POST", HAYWARD_API_URL, data=payload, headers=headers
+            )
+            response.raise_for_status()
 
-        response = requests.request("POST", url, data=payload, headers=headers)
+        except requests.exceptions.HTTPError as errh:
+            print("Http Error: ", errh)
+        except requests.exceptions.ConnectionError as errc:
+            print("Error Connecting: ", errc)
+        except requests.exceptions.Timeout as errt:
+            print("Timeout Error: ", errt)
+        except requests.exceptions.RequestException as err:
+            print("Oops. Something Else: ", err)
 
-        print(response.text)
-        return response.content
+        responseXML = ElementTree.fromstring(response.text)
+
+        """ ### GetMspConfigFile/Telemetry do not return a successfull status, having to catch it a different way :thumbsdown: """
+        if methodName == "GetMspConfigFile" and "MSPConfig" in response.text:
+            return response.text
+
+        if methodName == "GetTelemetryData" and "Backyard systemId" in response.text:
+            # print(responseXML.text)
+            return response.text
+        """ ######################## """
+
+        if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) != 0:
+            self.request_statusmessage = responseXML.find(
+                "./Parameters/Parameter[@name='StatusMessage']"
+            ).text
+            raise ValueError(self.request_statusmessage)
+
+        return response.text
 
     def connect(self):
+        """
+        Connect to the omnilogic API and if successful, return 
+        token and user id from the xml response
+        """
+        # print(f"user: {self.username}")
+        assert self.username != "", "Username not provided"
+        assert self.password != "", "password not provided"
 
-        params = [{"UserName": self.username, "Password": self.password}]
-        response = self.call_api("Login", params)
+        params = {"UserName": self.username, "Password": self.password}
+
+        try:
+            response = self.call_api("Login", params)
+        except:
+            pass
+
         responseXML = ElementTree.fromstring(response)
         self.token = responseXML.find("./Parameters/Parameter[@name='Token']").text
         self.userid = int(
@@ -75,38 +129,59 @@ class OmniLogic:
         if self.token is None:
             return False
 
-        self.logged_in = True
+        # self.logged_in = True
+        return self.token, self.userid
 
     def get_site_list(self):
         assert self.token != "", "No login token"
 
-        params = [{"Token": self.token}, {"UserID": self.userid}]
+        params = {"Token": self.token, "UserID": self.userid}
+
         response = self.call_api("GetSiteList", params)
         responseXML = ElementTree.fromstring(response)
+        # print(response)
         self.systemid = int(
             responseXML.find(
                 "./Parameters/Parameter/Item/Property[@name='MspSystemID']"
             ).text
         )
 
+        return self.systemid
+
     def get_msp_config_file(self):
         assert self.token != "", "No login token"
 
-        params = [
-            {"Token": self.token},
-            {"MspSystemID": self.systemid},
-            {"Version": "0"},
-        ]
-        response = self.call_api("GetMspConfigFile", params)
+        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0"}
+
+        return self.call_api("GetMspConfigFile", params)
+
+    def telemetry_to_json(self, telemetry):
+        telemetryXML = ElementTree.fromstring(telemetry)
+        backyard = {}
+
+        for child in telemetryXML:
+            if "version" in child.attrib:
+                continue
+
+            elif child.tag == "Backyard":
+                backyard["Backyard"] = child.attrib
+
+            elif child.tag == "BodyOfWater":
+                BOWname = "BOW" + str(child.attrib["systemId"])
+                backyard["Backyard"][BOWname] = child.attrib
+
+            else:
+                backyard["Backyard"][BOWname][child.tag] = child.attrib
+
+        return backyard
 
     def get_telemetry_data(self):
         assert self.token != "", "No login token"
 
-        params = [
-            {"Token": self.token},
-            {"MspSystemID": self.systemid},
-        ]
-        response = self.call_api("GetTelemetryData", params)
+        params = {"Token": self.token, "MspSystemID": self.systemid}
+
+        telem = self.call_api("GetTelemetryData", params)
+        return self.telemetry_to_json(telem)
 
     # def get_alarm_list(self):
 
@@ -132,14 +207,23 @@ class OmniLogic:
             {"DaysActive": 0},
             {"Recurring": False},
         ]
-        response = self.call_api("SetUIEquipmentCmd", params)
+
+        self.call_api("SetUIEquipmentCmd", params)
 
 
 # put yo creds in to test
 c = OmniLogic(username="", password="")
-c.connect()
+print(c.connect())
+# print(c.get_telemetry_data())
+
 print("\nToken: " + c.token)
-c.get_site_list()
-# c.get_msp_config_file()
-# c.get_telemetry_data()
-c.set_filter("on")
+print(c.get_site_list())
+
+print("MSP CONFIG ##############\n\n")
+config = c.get_msp_config_file()
+print(config)
+# print(c.returnJson(config))
+
+print("Telemetry ###############\n\n")
+telemetry = c.get_telemetry_data()
+print(telemetry)
