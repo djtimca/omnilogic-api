@@ -31,8 +31,16 @@ class OmniLogic:
         self.retry = 5
 
     def buildRequest(self, requestName, params):
-        """
-        Build Request - Pass name of method and dict of params
+        """ Generate the XML object required for each API call
+
+        Args:
+            requestName (str): Passing the param of the request, ex: Login, GetMspConfig, etc.
+            params (dict): Differing requirements based on requestName
+        Returns:
+            XML object that will be sent to the API
+        Raises:
+            None
+
         """
 
         req = Element("Request")
@@ -40,7 +48,6 @@ class OmniLogic:
         reqName.text = requestName
         paramTag = SubElement(req, "Parameters")
 
-        print(params)
         for k, v in params.items():
             datatype = ""
 
