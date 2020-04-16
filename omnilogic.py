@@ -16,7 +16,7 @@ HAYWARD_API_URL = "https://app1.haywardomnilogic.com/HAAPI/HomeAutomation/API.as
 # ]
 
 # get_msp_config_file = {}
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger("omnilogic")
 
 
 class OmniLogic:
@@ -57,9 +57,9 @@ class OmniLogic:
             param = SubElement(paramTag, "Parameter", name=k, dataType=datatype)
             param.text = str(v)
 
-        xml = ElementTree.tostring(req).decode()
+        requestXML = ElementTree.tostring(req).decode()
         print("\n" + xml + "\n")
-        return xml
+        return requestXML
 
     def call_api(self, methodName, params):
         """
