@@ -213,6 +213,11 @@ class OmniLogic:
 
             else:
                 backyard["Backyard"][BOWname][child.tag] = child.attrib
+        """ my_dict=xmltodict.parse(telemetry)
+        json_data=json.dumps(my_dict)
+        #print(json_data)
+
+        return json_data """
 
         return backyard
 
@@ -225,6 +230,13 @@ class OmniLogic:
         return self.telemetry_to_json(telem)
 
     # def get_alarm_list(self):
+
+    def convert_to_json(self,xmlString):
+        my_dict=xmltodict.parse(xmlString)
+        json_data=json.dumps(my_dict)
+        #print(json_data)
+
+        return json_data
 
     def set_filter(self, state):
         assert self.token != "", "No login token"
@@ -253,7 +265,7 @@ class OmniLogic:
 
 
 # put yo creds in to test
-c = OmniLogic(username="", password="")
+c = OmniLogic(username="alanranciato", password="Dolphan1")
 print(c.connect())
 # print(c.get_telemetry_data())
 
@@ -262,9 +274,10 @@ print(c.get_site_list())
 
 print("MSP CONFIG ##############\n\n")
 config = c.get_msp_config_file()
-print(config)
-# print(c.returnJson(config))
+#print(config)
 
+#print(c.get_telemetry_data())
+print(c.convert_to_json(config))
 # print ("Telemetry ###############\n\n")
 # telemetry = c.get_telemetry_data()
 # print (telemetry)
