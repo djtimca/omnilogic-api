@@ -8,6 +8,7 @@ from xml.etree import ElementTree
 from xml.etree.ElementTree import Element, SubElement, Comment, tostring
 import asyncio
 import logging
+import config
 
 HAYWARD_API_URL = "https://app1.haywardomnilogic.com/HAAPI/HomeAutomation/API.ashx"
 # CONNECT_PARAMS = [
@@ -265,7 +266,7 @@ class OmniLogic:
 
 
 # put yo creds in to test
-c = OmniLogic(username="", password="")
+c = OmniLogic(username=config.username, password=config.password)
 print(c.connect())
 # print(c.get_telemetry_data())
 
