@@ -265,7 +265,7 @@ class OmniLogic:
 
 
 # put yo creds in to test
-c = OmniLogic(username="alanranciato", password="Dolphan1")
+c = OmniLogic(username="", password="")
 print(c.connect())
 # print(c.get_telemetry_data())
 
