@@ -25,7 +25,7 @@ class OmniLogic:
         self.password = password
         self.systemid = ""
         self.userid = ""
-        self.token = "1d320b9beb934c2cb42dd8f79532fa8b"
+        self.token = ""
         self.verbose = True
         self.logged_in = False
         self.retry = 5
@@ -39,7 +39,7 @@ class OmniLogic:
         Returns:
             XML object that will be sent to the API
         Raises:
-            None
+            TBD
 
         """
 
@@ -65,7 +65,7 @@ class OmniLogic:
             param.text = str(v)
 
         requestXML = ElementTree.tostring(req).decode()
-        print("\n" + xml + "\n")
+        print("\n" + requestXML + "\n")
         return requestXML
 
     def call_api(self, methodName, params):
@@ -77,6 +77,7 @@ class OmniLogic:
             "content-type": "text/xml",
             "cache-control": "no-cache",
         }
+
         try:
             response = requests.request(
                 "POST", HAYWARD_API_URL, data=payload, headers=headers
@@ -116,7 +117,6 @@ class OmniLogic:
         Connect to the omnilogic API and if successful, return 
         token and user id from the xml response
         """
-        # print(f"user: {self.username}")
         assert self.username != "", "Username not provided"
         assert self.password != "", "password not provided"
 
@@ -155,12 +155,46 @@ class OmniLogic:
 
         return self.systemid
 
+        # def msp_config_to_json(self, mspconfig):
+        #     mspconfigXML = ElementTree.fromstring(mspconfig)
+
+        #     mspconf = mspconfigXML.findall("./Response/MSPConfig/Backyard/...")
+        #     print("MSP: ", mspconfig)
+        #     print(type(mspconfig))
+
+        # mspconfig = {}
+
+        # for childs in mspconfigXML:
+        #     # print(childs.tag)
+        #     # print(type(childs))
+        #     for child in childs:f
+        #         if "version" in child.attrib:
+        #             continue
+        #         # print(type(child))
+
+        #         # print("  ", child.tag, " ", child.attrib)
+        #         for item in child:
+        #             print(type(item))
+
+        #             if item.attrib == {}:
+        #                 for i in item:
+        #                     print(i.tag, i.attrib)
+        #             else:
+        #                 print(item.tag, " ", item.attrib)
+
+        #
+
+        # return
+
     def get_msp_config_file(self):
         assert self.token != "", "No login token"
+        assert self.systemid != "", "No MSP id"
 
         params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0"}
 
-        return self.call_api("GetMspConfigFile", params)
+        mspconfig = self.call_api("GetMspConfigFile", params)
+        return mspconfig
+        # return self.msp_config_to_json(mspconfig)
 
     def telemetry_to_json(self, telemetry):
         telemetryXML = ElementTree.fromstring(telemetry)
@@ -231,6 +265,6 @@ config = c.get_msp_config_file()
 print(config)
 # print(c.returnJson(config))
 
-print("Telemetry ###############\n\n")
-telemetry = c.get_telemetry_data()
-print(telemetry)
+# print ("Telemetry ###############\n\n")
+# telemetry = c.get_telemetry_data()
+# print (telemetry)
