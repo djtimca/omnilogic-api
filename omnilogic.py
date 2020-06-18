@@ -1,7 +1,5 @@
 import time
 import json
-import requests
-from requests.exceptions import ConnectionError as ConnectError, HTTPError, Timeout
 import xmltodict
 import collections
 from xml.etree import ElementTree
