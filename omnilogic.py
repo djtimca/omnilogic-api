@@ -1,7 +1,5 @@
 import time
 import json
-import requests
-from requests.exceptions import ConnectionError as ConnectError, HTTPError, Timeout
 import xmltodict
 import collections
 from xml.etree import ElementTree
@@ -9,6 +7,7 @@ from xml.etree.ElementTree import Element, SubElement, Comment, tostring
 import asyncio
 import logging
 import config
+import aiohttp
 
 HAYWARD_API_URL = "https://app1.haywardomnilogic.com/HAAPI/HomeAutomation/API.ashx"
 # CONNECT_PARAMS = [
@@ -30,6 +29,10 @@ class OmniLogic:
         self.verbose = True
         self.logged_in = False
         self.retry = 5
+        self._session = aiohttp.ClientSession()
+
+    async def close(self):
+            await self._session.close()
 
     def buildRequest(self, requestName, params):
         """ Generate the XML object required for each API call
@@ -69,40 +72,27 @@ class OmniLogic:
         print("\n" + requestXML + "\n")
         return requestXML
 
-    def call_api(self, methodName, params):
+    async def call_api(self, methodName, params):
         """
         Generic method to call API.
         """
         payload = self.buildRequest(methodName, params)
-        headers = {
-            "content-type": "text/xml",
-            "cache-control": "no-cache",
-        }
+        # headers = {
+        #     "content-type": "text/xml",
+        #     "cache-control": "no-cache",
+        # }
 
-        try:
-            response = requests.request(
-                "POST", HAYWARD_API_URL, data=payload, headers=headers
-            )
-            response.raise_for_status()
-
-        except requests.exceptions.HTTPError as errh:
-            print("Http Error: ", errh)
-        except requests.exceptions.ConnectionError as errc:
-            print("Error Connecting: ", errc)
-        except requests.exceptions.Timeout as errt:
-            print("Timeout Error: ", errt)
-        except requests.exceptions.RequestException as err:
-            print("Oops. Something Else: ", err)
-
-        responseXML = ElementTree.fromstring(response.text)
+        async with self._session.post(HAYWARD_API_URL, data=payload) as resp:
+            response = await resp.text()
+        responseXML = ElementTree.fromstring(response)
 
         """ ### GetMspConfigFile/Telemetry do not return a successfull status, having to catch it a different way :thumbsdown: """
-        if methodName == "GetMspConfigFile" and "MSPConfig" in response.text:
-            return response.text
+        if methodName == "GetMspConfigFile" and "MSPConfig" in response:
+            return response
 
-        if methodName == "GetTelemetryData" and "Backyard systemId" in response.text:
+        if methodName == "GetTelemetryData" and "Backyard systemId" in response:
             # print(responseXML.text)
-            return response.text
+            return response
         """ ######################## """
 
         if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) != 0:
@@ -111,9 +101,30 @@ class OmniLogic:
             ).text
             raise ValueError(self.request_statusmessage)
 
-        return response.text
+        return response
 
-    def connect(self):
+    async def _get_token(self):
+
+        params = {"UserName": self.username, "Password": self.password}
+
+        response = await self.call_api("Login", params)
+        root = ElementTree.fromstring(response)
+        userid = root[1][2].text
+        token = root[1][3].text
+        # await self.close()
+        return {"token": token, "userid": userid}
+
+    async def _get_new_token(self):
+      return await self._get_token()
+
+    async def authenticate(self):
+
+        if not self.token:
+            response = await self._get_new_token()
+            self.token = response['token']
+            self.userid = response['userid']
+
+    async def connect(self):
         """
         Connect to the omnilogic API and if successful, return 
         token and user id from the xml response
@@ -121,31 +132,20 @@ class OmniLogic:
         assert self.username != "", "Username not provided"
         assert self.password != "", "password not provided"
 
-        params = {"UserName": self.username, "Password": self.password}
-
-        try:
-            response = self.call_api("Login", params)
-        except:
-            pass
-
-        responseXML = ElementTree.fromstring(response)
-        self.token = responseXML.find("./Parameters/Parameter[@name='Token']").text
-        self.userid = int(
-            responseXML.find("./Parameters/Parameter[@name='UserID']").text
-        )
+        await self.authenticate()
 
         if self.token is None:
             return False
 
-        # self.logged_in = True
+        self.logged_in = True
         return self.token, self.userid
 
-    def get_site_list(self):
+    async def get_site_list(self):
         assert self.token != "", "No login token"
 
         params = {"Token": self.token, "UserID": self.userid}
 
-        response = self.call_api("GetSiteList", params)
+        response = await self.call_api("GetSiteList", params)
         responseXML = ElementTree.fromstring(response)
         # print(response)
         self.systemid = int(
@@ -187,13 +187,13 @@ class OmniLogic:
 
         # return
 
-    def get_msp_config_file(self):
+    async def get_msp_config_file(self):
         assert self.token != "", "No login token"
         assert self.systemid != "", "No MSP id"
 
         params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0"}
 
-        mspconfig = self.call_api("GetMspConfigFile", params)
+        mspconfig = await self.call_api("GetMspConfigFile", params)
         return mspconfig
         # return self.msp_config_to_json(mspconfig)
 
@@ -222,12 +222,12 @@ class OmniLogic:
 
         return backyard
 
-    def get_telemetry_data(self):
+    async def get_telemetry_data(self):
         assert self.token != "", "No login token"
 
         params = {"Token": self.token, "MspSystemID": self.systemid}
 
-        telem = self.call_api("GetTelemetryData", params)
+        telem = await self.call_api("GetTelemetryData", params)
         return self.telemetry_to_json(telem)
 
     # def get_alarm_list(self):
@@ -266,19 +266,19 @@ class OmniLogic:
 
 
 # put yo creds in to test
-c = OmniLogic(username=config.username, password=config.password)
-print(c.connect())
-# print(c.get_telemetry_data())
+async def main():
+    c = OmniLogic(username=config.username, password=config.password)
+    user = await c.connect()
+    print('User: ')
+    print(user)
+    site_list = await c.get_site_list()
+    print('site_list')
+    print(site_list)
+    config_file = await c.get_msp_config_file()
+    # print(config_file)
+    json_data = c.convert_to_json(config_file)
+    # print(json_data)
+    t_data = await c.get_telemetry_data()
+    print(t_data)
 
-print("\nToken: " + c.token)
-print(c.get_site_list())
-
-print("MSP CONFIG ##############\n\n")
-config = c.get_msp_config_file()
-#print(config)
-
-#print(c.get_telemetry_data())
-print(c.convert_to_json(config))
-# print ("Telemetry ###############\n\n")
-# telemetry = c.get_telemetry_data()
-# print (telemetry)
+asyncio.run(main())
