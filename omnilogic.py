@@ -166,7 +166,13 @@ class OmniLogic:
         params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0"}
 
         mspconfig = await self.call_api("GetMspConfigFile", params)
-        return self.convert_to_json(mspconfig)
+
+        config_data = self.convert_to_json(mspconfig)
+
+        BOWS = []
+        BOWS.append(config_data['Backyard']['Body-of-water'])
+
+        return BOWS
 
     def telemetry_to_json(self, telemetry):
         telemetryXML = ElementTree.fromstring(telemetry)
@@ -238,11 +244,8 @@ class OmniLogic:
 async def main():
     api_client = OmniLogic(username=config.username, password=config.password)
 
-    config_data = await api_client.get_msp_config_file()
+    BOWS = await api_client.get_msp_config_file()
     telemetry_data = await api_client.get_telemetry_data()
-    
-    BOWS = []
-    BOWS.append(config_data['Backyard']['Body-of-water'])
     
     for i, BOW in enumerate(BOWS):
         _LOGGER.info('BOW')
