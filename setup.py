@@ -8,7 +8,7 @@ setup(
   author = 'Tim Empringham',
   author_email = 'tim.empringham@live.ca',
   url = 'https://github.com/djtimca/omnilogic',
-  download_url = 'https://github.com/djtimca/omnilogic/archive/v_011.tar.gz',
+  download_url = 'https://github.com/djtimca/omnilogic/archive/v_012.tar.gz',
   keywords = ['OmniLogic', 'Hayward', 'Pool', 'Spa'],
   install_requires=[
           'json',
