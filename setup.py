@@ -11,7 +11,6 @@ setup(
   download_url = 'https://github.com/djtimca/omnilogic/archive/v_01.tar.gz',
   keywords = ['OmniLogic', 'Hayward', 'Pool', 'Spa'],
   install_requires=[
-          'time',
           'json',
           'xmltodict',
           'collections',
