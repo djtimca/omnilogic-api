@@ -2,13 +2,13 @@ from distutils.core import setup
 setup(
   name = 'omnilogic',
   packages = ['omnilogic'],
-  version = '0.1.2',
+  version = '0.1.3',
   license='apache-2.0',
   description = 'Integration for the Hayward OmniLogic pool control system',
   author = 'Tim Empringham',
   author_email = 'tim.empringham@live.ca',
   url = 'https://github.com/djtimca/omnilogic',
-  download_url = 'https://github.com/djtimca/omnilogic/archive/v_012.tar.gz',
+  download_url = 'https://github.com/djtimca/omnilogic/archive/v_013.tar.gz',
   keywords = ['OmniLogic', 'Hayward', 'Pool', 'Spa'],
   install_requires=[
           'json',
