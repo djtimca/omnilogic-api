@@ -62,7 +62,8 @@ class OmniLogic:
             elif type(v) == bool:
                 datatype = "bool"
             else:
-                print("Couldn't determine datatype, exiting.")
+                _LOGGER.info("Couldn't determine datatype, exiting.")
+                # print("Couldn't determine datatype, exiting.")
                 return None
 
             param = SubElement(paramTag, "Parameter", name=k, dataType=datatype)
@@ -253,38 +254,3 @@ class OmniLogic:
 
         self.call_api("SetUIEquipmentCmd", params)
 
-# put yo creds in to test
-#Remove before publishing: Temp main for testing only
-async def main():
-    api_client = OmniLogic(username=config.username, password=config.password)
-
-    BOWS = await api_client.get_BOWS()
-    telemetry_data = await api_client.get_telemetry_data()
-    
-    for i, BOW in enumerate(BOWS):
-        _LOGGER.info('BOW')
-        _LOGGER.info(BOW['Name'])
-        bow_name = BOW['Name']
-        bow_systemId = BOW['System-Id']
-        filterPump = json.loads(json.dumps(BOWS[i]['Filter']))
-        fp_name = filterPump['Name'].replace(' ', '_')
-        fp_systemId = filterPump['System-Id']
-        filterSpeed = telemetry_data['Backyard']['BOW%s' %(i + 1)]['Filter']['filterSpeed']
-        filterState = 'on' if telemetry_data['Backyard']['BOW%s' %(i + 1)]['Filter']['filterState'] == '1' else 'off'
-        print('omnilogic.%s_%s' %(bow_name, fp_name), filterState, {'speed': filterSpeed})
-        # hass.states.async_set('omnilogic.%s_%s' %(bow_name, fp_name), filterState, {'speed': filterSpeed})
-
-    # user = await c.connect()
-    # print('User: ')
-    # print(user)
-    # site_list = await c.get_site_list()
-    # print('site_list')
-    # print(site_list)
-    # config_file = await c.get_msp_config_file()
-    # print(config_file)
-    # json_data = c.convert_to_json(config_file)
-    # print(json_data)
-    # t_data = await c.get_telemetry_data()
-    # print(t_data)
-
-asyncio.run(main())
