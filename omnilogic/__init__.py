@@ -1,1 +1,1 @@
-from omnilogic.omnilogic.py import OmniLogic
+from .omnilogic.py import OmniLogic
