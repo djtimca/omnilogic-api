@@ -167,6 +167,20 @@ class OmniLogic:
 
         mspconfig = await self.call_api("GetMspConfigFile", params)
 
+        return self.convert_to_json(mspconfig)
+
+    async def get_BOWS(self):
+        if self.token is None:
+            await self.connect()
+        if self.systemid is None:
+            await self.get_site_list()
+        assert self.token != "", "No login token"
+        assert self.systemid != "", "No MSP id"
+
+        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0"}
+
+        mspconfig = await self.call_api("GetMspConfigFile", params)
+
         config_data = self.convert_to_json(mspconfig)
 
         BOWS = []
@@ -244,7 +258,7 @@ class OmniLogic:
 async def main():
     api_client = OmniLogic(username=config.username, password=config.password)
 
-    BOWS = await api_client.get_msp_config_file()
+    BOWS = await api_client.get_BOWS()
     telemetry_data = await api_client.get_telemetry_data()
     
     for i, BOW in enumerate(BOWS):
