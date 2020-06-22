@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
   name = 'omnilogic',
   packages = ['omnilogic'],
-  version = '0.1',
+  version = '0.1.1',
   license='apache-2.0',
   description = 'Integration for the Hayward OmniLogic pool control system',
   author = 'Tim Empringham',
