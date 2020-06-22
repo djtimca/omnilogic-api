@@ -240,7 +240,10 @@ async def main():
 
     config_data = await api_client.get_msp_config_file()
     telemetry_data = await api_client.get_telemetry_data()
-    BOWS = config_data['Backyard']['Body-of-water']
+    
+    BOWS = []
+    BOWS.append(config_data['Backyard']['Body-of-water'])
+    
     for i, BOW in enumerate(BOWS):
         _LOGGER.info('BOW')
         _LOGGER.info(BOW['Name'])
