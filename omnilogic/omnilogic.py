@@ -184,8 +184,11 @@ class OmniLogic:
 
         config_data = self.convert_to_json(mspconfig)
 
-        BOWS = []
-        BOWS.append(config_data['Backyard']['Body-of-water'])
+        if isinstance(config_data['Backyard']['Body-of-water'], list):
+            BOWS = config_data['Backyard']['Body-of-water']
+        else:
+            BOWS = []
+            BOWS.append(config_data['Backyard']['Body-of-water'])
 
         return BOWS
 
