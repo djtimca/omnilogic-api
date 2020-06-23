@@ -192,6 +192,63 @@ class OmniLogic:
 
         return BOWS
 
+    async def get_alarm_list(self):
+        if self.token is None:
+            await self.connect()
+        if self.systemid is None:
+            await self.get_site_list()
+        assert self.token != "", "No login token"
+        assert self.systemid != "", "No MSP id"
+
+        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0"}
+
+        mspconfig = await self.call_api("GetAlarmList", params)
+       
+        return self.alarms_to_json(mspconfig)
+
+    async def set_heater_onoff(self, PoolID, HeaterID, HeaterEnable):
+        if self.token is None:
+            await self.connect()
+        if self.systemid is None:
+            await self.get_site_list()
+        assert self.token != "", "No login token"
+        assert self.systemid != "", "No MSP id"
+
+        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0", "PoolID": PoolID, "HeaterID": HeaterID, "Enabled": HeaterEnable}
+
+        response = await self.call_api("SetHeaterEnable", params)
+        responseXML = ElementTree.fromstring(response)
+        
+        success = False
+
+        if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
+            success = True
+
+        return success
+
+    def alarms_to_json(self, alarms):
+        alarmsXML = ElementTree.fromstring(alarms)
+        alarmslist = []
+        
+    
+        for child in alarmsXML:
+            if child.get('name') == "List":
+                for alarmitem in child:
+                    thisalarm = {}
+                    
+                    for alarmline in alarmitem:
+                        thisalarm[alarmline.get('name')] = alarmline.attrib
+
+                    alarmslist.append(thisalarm)
+        
+        if len(alarmslist) == 0:
+            thisalarm = {}
+            thisalarm["Alarms"] = 'False'
+            
+            alarmslist.append(thisalarm)
+
+        return alarmslist
+
     def telemetry_to_json(self, telemetry):
         telemetryXML = ElementTree.fromstring(telemetry)
         backyard = {}
