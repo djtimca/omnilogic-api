@@ -82,7 +82,7 @@ class OmniLogic:
         #     "content-type": "text/xml",
         #     "cache-control": "no-cache",
         # }
-
+        
         async with self._session.post(HAYWARD_API_URL, data=payload) as resp:
             response = await resp.text()
         responseXML = ElementTree.fromstring(response)
@@ -217,6 +217,146 @@ class OmniLogic:
         params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0", "PoolID": PoolID, "HeaterID": HeaterID, "Enabled": HeaterEnable}
 
         response = await self.call_api("SetHeaterEnable", params)
+        responseXML = ElementTree.fromstring(response)
+        
+        success = False
+
+        if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
+            success = True
+
+        return success
+
+    async def set_heater_temperature(self, PoolID, HeaterID, Temperature):
+        if self.token is None:
+            await self.connect()
+        if self.systemid is None:
+            await self.get_site_list()
+        assert self.token != "", "No login token"
+        assert self.systemid != "", "No MSP id"
+
+        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0", "PoolID": PoolID, "HeaterID": HeaterID, "Temp": Temperature}
+
+        response = await self.call_api("SetUIHeaterCmd", params)
+        responseXML = ElementTree.fromstring(response)
+        
+        success = False
+
+        if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
+            success = True
+
+        return success
+
+    async def set_pump_speed(self, PoolID, PumpID, Speed):
+        if self.token is None:
+            await self.connect()
+        if self.systemid is None:
+            await self.get_site_list()
+        assert self.token != "", "No login token"
+        assert self.systemid != "", "No MSP id"
+
+        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0", "PoolID": PoolID, "EquipmentID": PumpID, "IsOn": Speed, "IsCountDownTimer": False, "StartTimeHours": 0, "StartTimeMinutes": 0, "EndTimeHours": 0, "EndTimeMinutes": 0, "DaysActive": 0, "Recurring": False}
+
+        response = await self.call_api("SetUIEquipmentCmd", params)
+        responseXML = ElementTree.fromstring(response)
+        
+        success = False
+
+        if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
+            success = True
+
+        return success
+
+    async def set_relay_valve(self, PoolID, EquipmentID, OnOff):
+        if self.token is None:
+            await self.connect()
+        if self.systemid is None:
+            await self.get_site_list()
+        assert self.token != "", "No login token"
+        assert self.systemid != "", "No MSP id"
+
+        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0", "PoolID": PoolID, "EquipmentID": EquipmentID, "IsOn": OnOff, "IsCountDownTimer": False, "StartTimeHours": 0, "StartTimeMinutes": 0, "EndTimeHours": 0, "EndTimeMinutes": 0, "DaysActive": 0, "Recurring": False}
+
+        response = await self.call_api("SetUIEquipmentCmd", params)
+        responseXML = ElementTree.fromstring(response)
+        
+        success = False
+
+        if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
+            success = True
+
+        return success
+
+    async def set_spillover_speed(self, PoolID, Speed):
+        if self.token is None:
+            await self.connect()
+        if self.systemid is None:
+            await self.get_site_list()
+        assert self.token != "", "No login token"
+        assert self.systemid != "", "No MSP id"
+
+        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0", "PoolID": PoolID, "Speed": Speed, "IsCountDownTimer": False, "StartTimeHours": 0, "StartTimeMinutes": 0, "EndTimeHours": 0, "EndTimeMinutes": 0, "DaysActive": 0, "Recurring": False}
+
+        response = await self.call_api("SetUISpilloverCmd", params)
+        responseXML = ElementTree.fromstring(response)
+        
+        success = False
+
+        if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
+            success = True
+
+        return success
+
+    async def set_superchlorination(self, PoolID, ChlorID, IsOn):
+        if self.token is None:
+            await self.connect()
+        if self.systemid is None:
+            await self.get_site_list()
+        assert self.token != "", "No login token"
+        assert self.systemid != "", "No MSP id"
+
+        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0", "PoolID": PoolID, "ChlorID": ChlorID, "IsOn": IsOn}
+
+        response = await self.call_api("SetUISuperCHLORCmd", params)
+        responseXML = ElementTree.fromstring(response)
+        
+        success = False
+
+        if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
+            success = True
+
+        return success
+
+    async def set_lightshow(self, PoolID, LightID, ShowID):
+        if self.token is None:
+            await self.connect()
+        if self.systemid is None:
+            await self.get_site_list()
+        assert self.token != "", "No login token"
+        assert self.systemid != "", "No MSP id"
+
+        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0", "PoolID": PoolID, "LightID": LightID, "Show": ShowID, "IsCountDownTimer": False, "StartTimeHours": 0, "StartTimeMinutes": 0, "EndTimeHours": 0, "EndTimeMinutes": 0, "DaysActive": 0, "Recurring": False}
+
+        response = await self.call_api("SetStandAloneLightShow", params)
+        responseXML = ElementTree.fromstring(response)
+        
+        success = False
+
+        if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
+            success = True
+
+        return success
+
+    async def set_lightshowv2(self, PoolID, LightID, ShowID, Speed, Brightness):
+        if self.token is None:
+            await self.connect()
+        if self.systemid is None:
+            await self.get_site_list()
+        assert self.token != "", "No login token"
+        assert self.systemid != "", "No MSP id"
+
+        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0", "PoolID": PoolID, "LightID": LightID, "Show": ShowID, "Speed":Speed, "Brightness": Brightness, "IsCountDownTimer": False, "StartTimeHours": 0, "StartTimeMinutes": 0, "EndTimeHours": 0, "EndTimeMinutes": 0, "DaysActive": 0, "Recurring": False}
+
+        response = await self.call_api("SetStandAloneLightShowV2", params)
         responseXML = ElementTree.fromstring(response)
         
         success = False
