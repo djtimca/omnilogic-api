@@ -203,7 +203,7 @@ class OmniLogic:
         params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0"}
 
         mspconfig = await self.call_api("GetAlarmList", params)
-       
+    
         return self.alarms_to_json(mspconfig)
 
     async def set_heater_onoff(self, PoolID, HeaterID, HeaterEnable):
@@ -370,23 +370,24 @@ class OmniLogic:
         alarmsXML = ElementTree.fromstring(alarms)
         alarmslist = []
         
-    
         for child in alarmsXML:
-            if child.get('name') == "List":
-                for alarmitem in child:
-                    thisalarm = {}
-                    
-                    for alarmline in alarmitem:
-                        thisalarm[alarmline.get('name')] = alarmline.attrib
-
-                    alarmslist.append(thisalarm)
+            if child.tag == "Parameters":
+                for params in child:
+                    if params.get('name') == "List":
+                        for alarmitem in params:
+                            thisalarm = {}
+                            
+                            for alarmline in alarmitem:
+                                thisalarm[alarmline.get('name')] = alarmline.text
+                            
+                            alarmslist.append(thisalarm)
         
         if len(alarmslist) == 0:
             thisalarm = {}
-            thisalarm["Alarms"] = 'False'
+            thisalarm["BowID"] = 'False'
             
             alarmslist.append(thisalarm)
-
+        
         return alarmslist
 
     def telemetry_to_json(self, telemetry):

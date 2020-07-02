@@ -44,7 +44,7 @@ Returns the list of Bodies of Water from the MSP configuration file, forced into
 
 ### get_alarm_list
 
-Returns a list of all alarms on the pool equipment in JSON format. If there are no alarms returns JSON {'Alarms', 'False'}
+Returns a list of all alarms on the pool equipment in JSON format. If there are no alarms returns JSON {'BowID', 'False'}
 
 ### set_heater_onoff(PoolID, HeaterID, HeaterEnable)
 
