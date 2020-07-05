@@ -393,6 +393,7 @@ class OmniLogic:
     def telemetry_to_json(self, telemetry):
         telemetryXML = ElementTree.fromstring(telemetry)
         backyard = {}
+        BOWname = ""
 
         for child in telemetryXML:
             if "version" in child.attrib:
