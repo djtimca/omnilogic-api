@@ -24,19 +24,20 @@ class OmniLogic:
         self.username = username
         self.password = password
         self.systemid = None
+        self.systemname = None
         self.userid = None
         self.token = None
         self.verbose = True
         self.logged_in = False
         self.retry = 5
         self._session = aiohttp.ClientSession()
+        self.systems = []
 
     async def close(self):
             await self._session.close()
 
     def buildRequest(self, requestName, params):
         """ Generate the XML object required for each API call
-
         Args:
             requestName (str): Passing the param of the request, ex: Login, GetMspConfig, etc.
             params (dict): Differing requirements based on requestName
@@ -44,7 +45,6 @@ class OmniLogic:
             XML object that will be sent to the API
         Raises:
             TBD
-
         """
 
         req = Element("Request")
@@ -85,8 +85,9 @@ class OmniLogic:
         
         async with self._session.post(HAYWARD_API_URL, data=payload) as resp:
             response = await resp.text()
+            
         responseXML = ElementTree.fromstring(response)
-
+        
         """ ### GetMspConfigFile/Telemetry do not return a successfull status, having to catch it a different way :thumbsdown: """
         if methodName == "GetMspConfigFile" and "MSPConfig" in response:
             return response
@@ -96,12 +97,17 @@ class OmniLogic:
             return response
         """ ######################## """
 
+        if methodName == "Login" and "You don't have permission" in response:
+            #login invalid
+            response = "Failed"
+
         if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) != 0:
             self.request_statusmessage = responseXML.find(
                 "./Parameters/Parameter[@name='StatusMessage']"
             ).text
-            raise ValueError(self.request_statusmessage)
-
+            #raise ValueError(self.request_statusmessage)
+            response = self.request_statusmessage
+        
         return response
 
     async def _get_token(self):
@@ -109,11 +115,16 @@ class OmniLogic:
         params = {"UserName": self.username, "Password": self.password}
 
         response = await self.call_api("Login", params)
-        root = ElementTree.fromstring(response)
-        userid = root[1][2].text
-        token = root[1][3].text
-        # await self.close()
-        return {"token": token, "userid": userid}
+        
+        if "There is no information" in response:
+          return '{"Error":"Failed"}'
+        else:
+          root = ElementTree.fromstring(response)
+          userid = root[1][2].text
+          token = root[1][3].text
+          # await self.close()
+          
+          return {"token": token, "userid": userid}
 
     async def _get_new_token(self):
       return await self._get_token()
@@ -122,55 +133,158 @@ class OmniLogic:
 
         if not self.token:
             response = await self._get_new_token()
-            self.token = response['token']
-            self.userid = response['userid']
+            
+            if response != '{"Error":"Failed"}':
+              self.token = response['token']
+              self.userid = response['userid']
+            else:
+              self.token = ""
+              self.userid = ""
 
     async def connect(self):
         """
         Connect to the omnilogic API and if successful, return 
         token and user id from the xml response
         """
-        assert self.username != "", "Username not provided"
-        assert self.password != "", "password not provided"
+        #assert self.username != "", "Username not provided"
+        #assert self.password != "", "password not provided"
 
-        await self.authenticate()
+        if self.username != "" and self.password != "":
+          await self.authenticate()
 
-        if self.token is None:
-            return False
+          if self.token is None:
+              return False
 
-        self.logged_in = True
-        return self.token, self.userid
+          self.logged_in = True
+          
+          return self.token, self.userid
 
     async def get_site_list(self):
-        assert self.token != "", "No login token"
+        #assert self.token != "", "No login token"
+        
+        if self.token is not None:
+          params = {"Token": self.token, "UserID": self.userid}
 
-        params = {"Token": self.token, "UserID": self.userid}
+          response = await self.call_api("GetSiteList", params)
+          
+          if "You don't have permission" in response or "The message format is wrong" in response:
+            self.systems = []
+          else:
+            responseXML = ElementTree.fromstring(response)
+            for child in responseXML.findall('./Parameters/Parameter/Item'):
+              siteID = 0
+              siteName = ""
+              site = {}
 
-        response = await self.call_api("GetSiteList", params)
-        responseXML = ElementTree.fromstring(response)
-        self.systemid = int(
-            responseXML.find(
-                "./Parameters/Parameter/Item/Property[@name='MspSystemID']"
-            ).text
-        )
+              for item in child:
 
-        return self.systemid
+                if item.get('name') == "MspSystemID":
+                  siteID = int(item.text)
+                elif item.get('name') == "BackyardName":
+                  siteName = str(item.text)
+
+              site["MspSystemID"] = siteID
+              site["BackyardName"] = siteName
+
+              self.systems.append(site)
+           
+        return self.systems
 
     async def get_msp_config_file(self):
         if self.token is None:
             await self.connect()
-        if self.systemid is None:
+        if len(self.systems) == 0:
             await self.get_site_list()
-        assert self.token != "", "No login token"
-        assert self.systemid != "", "No MSP id"
 
-        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0"}
+        mspconfig_list = []
+        
+        if len(self.systems) != 0 and self.token != "":
+          for system in self.systems:
+            params = {"Token": self.token, "MspSystemID": system['MspSystemID'], "Version": "0"}
 
-        mspconfig = await self.call_api("GetMspConfigFile", params)
+            mspconfig = await self.call_api("GetMspConfigFile", params)
+            
+            configitem = self.convert_to_json(mspconfig)
+            configitem['MspSystemID'] = system['MspSystemID']
+            configitem['BackyardName'] = system['BackyardName']
 
-        return self.convert_to_json(mspconfig)
+            relays = []
+            if "Relay" in configitem['Backyard']:
+              try:
+                for relay in configitem['Relay']:
+                  relays.append(relay)
+              except:
+                relays.append(configitem['Backyard']['Relay'])
+            
+            configitem['Relays'] = relays
+
+            BOW_list = []
+            
+            if type(configitem['Backyard']['Body-of-water']) == dict:
+              BOW = json.dumps(configitem['Backyard']['Body-of-water'])
+              
+              bow_relays = []
+              bow_lights = []
+              
+              if 'Relay' in BOW:
+                try:
+                  for relay in BOW['Relay']:
+                    bow_relays.append(relay)
+                except:
+                  bow_relays.append(configitem['Backyard']['Body-of-water']['Relay'])
+              if 'ColorLogic-Light' in BOW:
+                try:
+                  for light in BOW['ColorLogic-Light']:
+                    bow_lights.append(light)
+                except:
+                  bow_lights.append(configitem['Backyard']['Body-of-water']['ColorLogic-Light'])
+
+              BOW = json.loads(BOW) 
+              BOW['Relays'] = bow_relays
+              BOW['Lights'] = bow_lights
+
+              BOW_list.append(BOW)
+            else:
+              for BOW in configitem['Backyard']['Body-of-water']:
+                bow_relays = []
+                bow_lights = []
+                
+                if 'Relay' in BOW:
+                  try:
+                    for relay in BOW['Relay']:
+                      if type(relay) == str:
+                        bow_relays.append(BOW['Relay'])
+                        break
+                      else:
+                        bow_relays.append(relay)
+                  except:
+                    bow_relays.append(BOW['Relay'])
+                if 'ColorLogic-Light' in BOW:
+                  try:
+                    for light in BOW['ColorLogic-Light']:
+                      if type(light) == str:
+                        bow_lights.append(BOW['ColorLogic-Light'])
+                        break
+                      else:
+                        bow_lights.append(light)
+                  except:
+                    bow_lights.append(BOW['ColorLogic-Light'])
+                
+                BOW['Relays'] = bow_relays
+                BOW['Lights'] = bow_lights
+
+                BOW_list.append(BOW)
+            
+            configitem['Backyard']['BOWS'] = BOW_list
+
+            mspconfig_list.append(configitem)
+
+          return mspconfig_list
+        else:
+          return '{"Error":"Failed"}'
 
     async def get_BOWS(self):
+        # DEPRECATED - USE get_msp_config_data instead.
         if self.token is None:
             await self.connect()
         if self.systemid is None:
@@ -195,174 +309,161 @@ class OmniLogic:
     async def get_alarm_list(self):
         if self.token is None:
             await self.connect()
-        if self.systemid is None:
+        if len(self.systems) == 0:
             await self.get_site_list()
-        assert self.token != "", "No login token"
-        assert self.systemid != "", "No MSP id"
 
-        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0"}
+        alarmslist = []
 
-        mspconfig = await self.call_api("GetAlarmList", params)
-    
-        return self.alarms_to_json(mspconfig)
+        if len(self.systems) != 0 and self.token is not None:
+          for system in self.systems:
+            params = {"Token": self.token, "MspSystemID": system['MspSystemID'], "Version": "0"}
+            site_alarms = {}
 
-    async def set_heater_onoff(self, PoolID, HeaterID, HeaterEnable):
+            this_alarm = await self.call_api("GetAlarmList", params)
+
+            site_alarms["Alarms"] = self.alarms_to_json(this_alarm)
+            site_alarms["MspSystemID"] = system["MspSystemID"]
+            site_alarms["BackyardName"] = system["BackyardName"]
+            alarmslist.append(site_alarms)
+        else:
+          return {"Error":"Failure"}    
+        
+        return alarmslist
+
+    async def set_heater_onoff(self, MspSystemID, PoolID, HeaterID, HeaterEnable):
         if self.token is None:
             await self.connect()
-        if self.systemid is None:
-            await self.get_site_list()
-        assert self.token != "", "No login token"
-        assert self.systemid != "", "No MSP id"
-
-        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0", "PoolID": PoolID, "HeaterID": HeaterID, "Enabled": HeaterEnable}
-
-        response = await self.call_api("SetHeaterEnable", params)
-        responseXML = ElementTree.fromstring(response)
         
         success = False
 
-        if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
-            success = True
+        if self.token is not None:
+          params = {"Token": self.token, "MspSystemID": MspSystemID, "Version": "0", "PoolID": PoolID, "HeaterID": HeaterID, "Enabled": HeaterEnable}
+
+          response = await self.call_api("SetHeaterEnable", params)
+          responseXML = ElementTree.fromstring(response)
+          
+          if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
+              success = True
+        
+        return success
+
+    async def set_heater_temperature(self, MspSystemID, PoolID, HeaterID, Temperature):
+        if self.token is None:
+            await self.connect()
+
+        success = False
+
+        if self.token is not None:
+          params = {"Token": self.token, "MspSystemID": MspSystemID, "Version": "0", "PoolID": PoolID, "HeaterID": HeaterID, "Temp": Temperature}
+
+          response = await self.call_api("SetUIHeaterCmd", params)
+          responseXML = ElementTree.fromstring(response)
+          
+          if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
+              success = True
 
         return success
 
-    async def set_heater_temperature(self, PoolID, HeaterID, Temperature):
+    async def set_pump_speed(self, MspSystemID, PoolID, PumpID, Speed):
         if self.token is None:
             await self.connect()
-        if self.systemid is None:
-            await self.get_site_list()
-        assert self.token != "", "No login token"
-        assert self.systemid != "", "No MSP id"
 
-        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0", "PoolID": PoolID, "HeaterID": HeaterID, "Temp": Temperature}
-
-        response = await self.call_api("SetUIHeaterCmd", params)
-        responseXML = ElementTree.fromstring(response)
-        
         success = False
 
-        if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
-            success = True
+        if self.token is not None:
+          params = {"Token": self.token, "MspSystemID": MspSystemID, "Version": "0", "PoolID": PoolID, "EquipmentID": PumpID, "IsOn": Speed, "IsCountDownTimer": False, "StartTimeHours": 0, "StartTimeMinutes": 0, "EndTimeHours": 0, "EndTimeMinutes": 0, "DaysActive": 0, "Recurring": False}
+
+          response = await self.call_api("SetUIEquipmentCmd", params)
+          responseXML = ElementTree.fromstring(response)
+          
+          if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
+              success = True
 
         return success
 
-    async def set_pump_speed(self, PoolID, PumpID, Speed):
+    async def set_relay_valve(self, MspSystemID, PoolID, EquipmentID, OnOff):
         if self.token is None:
             await self.connect()
-        if self.systemid is None:
-            await self.get_site_list()
-        assert self.token != "", "No login token"
-        assert self.systemid != "", "No MSP id"
 
-        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0", "PoolID": PoolID, "EquipmentID": PumpID, "IsOn": Speed, "IsCountDownTimer": False, "StartTimeHours": 0, "StartTimeMinutes": 0, "EndTimeHours": 0, "EndTimeMinutes": 0, "DaysActive": 0, "Recurring": False}
-
-        response = await self.call_api("SetUIEquipmentCmd", params)
-        responseXML = ElementTree.fromstring(response)
-        
         success = False
 
-        if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
-            success = True
+        if self.token is not None:
+          params = {"Token": self.token, "MspSystemID": MspSystemID, "Version": "0", "PoolID": PoolID, "EquipmentID": EquipmentID, "IsOn": OnOff, "IsCountDownTimer": False, "StartTimeHours": 0, "StartTimeMinutes": 0, "EndTimeHours": 0, "EndTimeMinutes": 0, "DaysActive": 0, "Recurring": False}
+
+          response = await self.call_api("SetUIEquipmentCmd", params)
+          
+          responseXML = ElementTree.fromstring(response)
+          
+          if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
+              success = True
 
         return success
 
-    async def set_relay_valve(self, PoolID, EquipmentID, OnOff):
+    async def set_spillover_speed(self, MspSystemID, PoolID, Speed):
         if self.token is None:
             await self.connect()
-        if self.systemid is None:
-            await self.get_site_list()
-        assert self.token != "", "No login token"
-        assert self.systemid != "", "No MSP id"
 
-        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0", "PoolID": PoolID, "EquipmentID": EquipmentID, "IsOn": OnOff, "IsCountDownTimer": False, "StartTimeHours": 0, "StartTimeMinutes": 0, "EndTimeHours": 0, "EndTimeMinutes": 0, "DaysActive": 0, "Recurring": False}
-
-        response = await self.call_api("SetUIEquipmentCmd", params)
-        responseXML = ElementTree.fromstring(response)
-        
         success = False
 
-        if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
-            success = True
+        if self.token is not None:
+          params = {"Token": self.token, "MspSystemID": MspSystemID, "Version": "0", "PoolID": PoolID, "Speed": Speed, "IsCountDownTimer": False, "StartTimeHours": 0, "StartTimeMinutes": 0, "EndTimeHours": 0, "EndTimeMinutes": 0, "DaysActive": 0, "Recurring": False}
+
+          response = await self.call_api("SetUISpilloverCmd", params)
+          responseXML = ElementTree.fromstring(response)
+
+          if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
+              success = True
 
         return success
 
-    async def set_spillover_speed(self, PoolID, Speed):
+    async def set_superchlorination(self, MspSystemID, PoolID, ChlorID, IsOn):
         if self.token is None:
             await self.connect()
-        if self.systemid is None:
-            await self.get_site_list()
-        assert self.token != "", "No login token"
-        assert self.systemid != "", "No MSP id"
 
-        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0", "PoolID": PoolID, "Speed": Speed, "IsCountDownTimer": False, "StartTimeHours": 0, "StartTimeMinutes": 0, "EndTimeHours": 0, "EndTimeMinutes": 0, "DaysActive": 0, "Recurring": False}
-
-        response = await self.call_api("SetUISpilloverCmd", params)
-        responseXML = ElementTree.fromstring(response)
-        
         success = False
 
-        if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
-            success = True
+        if self.token is not None:
+          params = {"Token": self.token, "MspSystemID": MspSystemID, "Version": "0", "PoolID": PoolID, "ChlorID": ChlorID, "IsOn": IsOn}
+
+          response = await self.call_api("SetUISuperCHLORCmd", params)
+          responseXML = ElementTree.fromstring(response)
+          
+          if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
+              success = True
 
         return success
 
-    async def set_superchlorination(self, PoolID, ChlorID, IsOn):
+    async def set_lightshow(self, MspSystemID, PoolID, LightID, ShowID):
         if self.token is None:
             await self.connect()
-        if self.systemid is None:
-            await self.get_site_list()
-        assert self.token != "", "No login token"
-        assert self.systemid != "", "No MSP id"
 
-        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0", "PoolID": PoolID, "ChlorID": ChlorID, "IsOn": IsOn}
-
-        response = await self.call_api("SetUISuperCHLORCmd", params)
-        responseXML = ElementTree.fromstring(response)
-        
         success = False
 
-        if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
-            success = True
+        if self.token is not None:
+          params = {"Token": self.token, "MspSystemID": MspSystemID, "Version": "0", "PoolID": PoolID, "LightID": LightID, "Show": ShowID, "IsCountDownTimer": False, "StartTimeHours": 0, "StartTimeMinutes": 0, "EndTimeHours": 0, "EndTimeMinutes": 0, "DaysActive": 0, "Recurring": False}
+
+          response = await self.call_api("SetStandAloneLightShow", params)
+          responseXML = ElementTree.fromstring(response)
+          
+          if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
+              success = True
 
         return success
 
-    async def set_lightshow(self, PoolID, LightID, ShowID):
+    async def set_lightshowv2(self, MspSystemID, PoolID, LightID, ShowID, Speed, Brightness):
         if self.token is None:
             await self.connect()
-        if self.systemid is None:
-            await self.get_site_list()
-        assert self.token != "", "No login token"
-        assert self.systemid != "", "No MSP id"
 
-        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0", "PoolID": PoolID, "LightID": LightID, "Show": ShowID, "IsCountDownTimer": False, "StartTimeHours": 0, "StartTimeMinutes": 0, "EndTimeHours": 0, "EndTimeMinutes": 0, "DaysActive": 0, "Recurring": False}
-
-        response = await self.call_api("SetStandAloneLightShow", params)
-        responseXML = ElementTree.fromstring(response)
-        
         success = False
 
-        if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
-            success = True
+        if self.token is not None:
+          params = {"Token": self.token, "MspSystemID": MspSystemID, "Version": "0", "PoolID": PoolID, "LightID": LightID, "Show": ShowID, "Speed":Speed, "Brightness": Brightness, "IsCountDownTimer": False, "StartTimeHours": 0, "StartTimeMinutes": 0, "EndTimeHours": 0, "EndTimeMinutes": 0, "DaysActive": 0, "Recurring": False}
 
-        return success
-
-    async def set_lightshowv2(self, PoolID, LightID, ShowID, Speed, Brightness):
-        if self.token is None:
-            await self.connect()
-        if self.systemid is None:
-            await self.get_site_list()
-        assert self.token != "", "No login token"
-        assert self.systemid != "", "No MSP id"
-
-        params = {"Token": self.token, "MspSystemID": self.systemid, "Version": "0", "PoolID": PoolID, "LightID": LightID, "Show": ShowID, "Speed":Speed, "Brightness": Brightness, "IsCountDownTimer": False, "StartTimeHours": 0, "StartTimeMinutes": 0, "EndTimeHours": 0, "EndTimeMinutes": 0, "DaysActive": 0, "Recurring": False}
-
-        response = await self.call_api("SetStandAloneLightShowV2", params)
-        responseXML = ElementTree.fromstring(response)
-        
-        success = False
-
-        if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
-            success = True
+          response = await self.call_api("SetStandAloneLightShowV2", params)
+          responseXML = ElementTree.fromstring(response)
+          
+          if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) == 0:
+              success = True
 
         return success
 
@@ -393,6 +494,16 @@ class OmniLogic:
     def telemetry_to_json(self, telemetry):
         telemetryXML = ElementTree.fromstring(telemetry)
         backyard = {}
+
+        BOW = {}
+
+        backyard_list = []
+        BOW_list = []
+        relays = []
+        bow_lights = []
+        bow_relays = []
+
+        backyard_name = ""
         BOWname = ""
 
         for child in telemetryXML:
@@ -400,34 +511,92 @@ class OmniLogic:
                 continue
 
             elif child.tag == "Backyard":
-                backyard["Backyard"] = child.attrib
+                if backyard_name == "":
+                  backyard_name = "Backyard" + str(child.attrib["systemId"])
+                  backyard = child.attrib
+                else:
+                  BOW["Lights"] = bow_lights
+                  BOW["Relays"] = bow_relays
+                  BOW_list.append(BOW)
+                  backyard["BOWS"] = BOW_list
+                  backyard_list.append(backyard)
 
+                  backyard_name = "Backyard" + str(child.attrib["systemId"])
+                  backyard = child.attrib
+                  BOW_list = []
+                  bow_lights = []
+                  bow_relays = []
+                  relays = []
+                  BOWname = ""
+                
             elif child.tag == "BodyOfWater":
-                BOWname = "BOW" + str(child.attrib["systemId"])
-                backyard["Backyard"][BOWname] = child.attrib
+                if BOWname == "":
+                  backyard["Relays"] = relays
+                  BOWname = "BOW" + str(child.attrib["systemId"])
+                  BOW = child.attrib
+                else:
+                  BOW["Lights"] = bow_lights
+                  BOW["Relays"] = bow_relays
+                  
+                  BOW_list.append(BOW)
+
+                  BOW = {}
+                  bow_lights = []
+                  bow_relays = []
+
+                  BOWname = "BOW" + str(child.attrib["systemId"])
+                  
+                  BOW = child.attrib
+                
+            elif child.tag == "Relay" and BOWname=="":
+                relays.append(child.attrib)
+
+            elif child.tag == "ColorLogic-Light":
+                bow_lights.append(child.attrib)
+
+            elif child.tag == "Relay":
+                bow_relays.append(child.attrib)
 
             else:
-                backyard["Backyard"][BOWname][child.tag] = child.attrib
-        """ my_dict=xmltodict.parse(telemetry)
-        json_data=json.dumps(my_dict)
-        #print(json_data)
+                BOW[child.tag] = child.attrib
 
-        return json_data """
+        BOW["Lights"] = bow_lights
+        BOW["Relays"] = bow_relays
+        BOW_list.append(BOW)
 
-        return backyard
+        backyard["BOWS"] = BOW_list
+
+        backyard_list.append(backyard)
+
+        return backyard_list
 
     async def get_telemetry_data(self):
         if self.token is None:
             await self.connect()
-        if self.systemid is None:
+        if len(self.systems) == 0:
             await self.get_site_list()
 
         # assert self.token != "", "No login token"
+        telem_list = []
+        if self.token != "" and len(self.systems) != 0:
+          
+          for system in self.systems:
+            
+            params = {"Token": self.token, "MspSystemID": system['MspSystemID']}
+            
+            telem = await self.call_api("GetTelemetryData", params)
+            
+            site_telem = {}
+            site_telem['Telemetry'] = self.telemetry_to_json(telem)
+            site_telem['MspSystemID'] = system['MspSystemID']
+            site_telem['BackyardName'] = system['BackyardName']
 
-        params = {"Token": self.token, "MspSystemID": self.systemid}
+            telem_list.append(site_telem)
 
-        telem = await self.call_api("GetTelemetryData", params)
-        return self.telemetry_to_json(telem)
+        else:
+          return({"Error":"Failure"})
+
+        return telem_list
 
     # def get_alarm_list(self):
 
@@ -455,4 +624,3 @@ class OmniLogic:
         ]
 
         self.call_api("SetUIEquipmentCmd", params)
-
