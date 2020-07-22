@@ -65,9 +65,10 @@ class OmniLogic:
                 _LOGGER.info("Couldn't determine datatype, exiting.")
                 # print("Couldn't determine datatype, exiting.")
                 return None
-
-            param = SubElement(paramTag, "Parameter", name=k, dataType=datatype)
-            param.text = str(v)
+            
+            if str(k) != "Token":
+              param = SubElement(paramTag, "Parameter", name=k, dataType=datatype)
+              param.text = str(v)
 
         requestXML = ElementTree.tostring(req).decode()
         # print("\n" + requestXML + "\n")
@@ -78,14 +79,17 @@ class OmniLogic:
         Generic method to call API.
         """
         payload = self.buildRequest(methodName, params)
-        # headers = {
-        #     "content-type": "text/xml",
-        #     "cache-control": "no-cache",
-        # }
         
-        async with self._session.post(HAYWARD_API_URL, data=payload) as resp:
+        headers = {"content-type": "text/xml","cache-control": "no-cache",}
+        
+        if self.token:
+          headers['Token'] = self.token
+          if 'MspSystemID' in params:
+            headers['SiteID'] = str(params['MspSystemID'])
+        
+        async with self._session.post(HAYWARD_API_URL, data=payload, headers=headers) as resp:
             response = await resp.text()
-            
+
         responseXML = ElementTree.fromstring(response)
         
         """ ### GetMspConfigFile/Telemetry do not return a successfull status, having to catch it a different way :thumbsdown: """
@@ -97,9 +101,9 @@ class OmniLogic:
             return response
         """ ######################## """
 
-        if methodName == "Login" and "You don't have permission" in response:
+        if methodName == "Login" and "There is no information"  in response:
             #login invalid
-            response = "Failed"
+            response = {"Error":"Failed login"}
 
         if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) != 0:
             self.request_statusmessage = responseXML.find(
@@ -200,7 +204,7 @@ class OmniLogic:
         
         if len(self.systems) != 0 and self.token != "":
           for system in self.systems:
-            params = {"Token": self.token, "MspSystemID": system['MspSystemID'], "Version": "0"}
+            params = {"Token": self.token, "MspSystemID": system['MspSystemID'], "Version": 0}
 
             mspconfig = await self.call_api("GetMspConfigFile", params)
             
@@ -213,8 +217,12 @@ class OmniLogic:
               try:
                 for relay in configitem['Relay']:
                   relays.append(relay)
+                
               except:
-                relays.append(configitem['Backyard']['Relay'])
+                if isinstance(configitem['Backyard']['Relay'], list):
+                  relays = configitem['Backyard']['Relay']
+                else:
+                  relays.append(configitem['Backyard']['Relay'])
             
             configitem['Relays'] = relays
 
@@ -231,13 +239,19 @@ class OmniLogic:
                   for relay in BOW['Relay']:
                     bow_relays.append(relay)
                 except:
-                  bow_relays.append(configitem['Backyard']['Body-of-water']['Relay'])
+                  if isinstance(configitem['Backyard']['Body-of-water']['Relay'],list):
+                    bow_relays = configitem['Backyard']['Body-of-water']['Relay']
+                  else:
+                    bow_relays.append(configitem['Backyard']['Body-of-water']['Relay'])
               if 'ColorLogic-Light' in BOW:
                 try:
                   for light in BOW['ColorLogic-Light']:
                     bow_lights.append(light)
                 except:
-                  bow_lights.append(configitem['Backyard']['Body-of-water']['ColorLogic-Light'])
+                  if isinstance(configitem['Backyard']['Body-of-water']['ColorLogic-Light'], list):
+                    bow_lights = configitem['Backyard']['Body-of-water']['ColorLogic-Light']
+                  else:
+                    bow_lights.append(configitem['Backyard']['Body-of-water']['ColorLogic-Light'])
 
               BOW = json.loads(BOW) 
               BOW['Relays'] = bow_relays
@@ -281,7 +295,7 @@ class OmniLogic:
 
           return mspconfig_list
         else:
-          return '{"Error":"Failed"}'
+          return '{"Error":"Failed getting MSP Config Data."}'
 
     async def get_BOWS(self):
         # DEPRECATED - USE get_msp_config_data instead.
@@ -326,7 +340,7 @@ class OmniLogic:
             site_alarms["BackyardName"] = system["BackyardName"]
             alarmslist.append(site_alarms)
         else:
-          return {"Error":"Failure"}    
+          return {"Error":"Failure getting alarms."}    
         
         return alarmslist
 
@@ -491,7 +505,7 @@ class OmniLogic:
         
         return alarmslist
 
-    def telemetry_to_json(self, telemetry):
+    def telemetry_to_json(self, telemetry, config_data):
         telemetryXML = ElementTree.fromstring(telemetry)
         backyard = {}
 
@@ -502,10 +516,11 @@ class OmniLogic:
         relays = []
         bow_lights = []
         bow_relays = []
+        bow_item = {}
 
         backyard_name = ""
         BOWname = ""
-
+        
         for child in telemetryXML:
             if "version" in child.attrib:
                 continue
@@ -533,6 +548,10 @@ class OmniLogic:
                 if BOWname == "":
                   backyard["Relays"] = relays
                   BOWname = "BOW" + str(child.attrib["systemId"])
+                  
+                  for bow in config_data['Backyard']['BOWS']:
+                    if child.attrib['systemId'] == bow['System-Id']:
+                      bow_item = bow
                   BOW = child.attrib
                 else:
                   BOW["Lights"] = bow_lights
@@ -545,17 +564,78 @@ class OmniLogic:
                   bow_relays = []
 
                   BOWname = "BOW" + str(child.attrib["systemId"])
+
+                  for bow in config_data['Backyard']['BOWS']:
+                    if child.attrib['systemId'] == bow['System-Id']:
+                      bow_item = bow
                   
                   BOW = child.attrib
+                BOW['Name'] = bow_item['Name']
+                BOW['Supports-Spillover'] = bow_item['Supports-Spillover']
                 
             elif child.tag == "Relay" and BOWname=="":
-                relays.append(child.attrib)
+                this_relay = child.attrib
+                for relay in config_data['Relays']:
+                  if this_relay['systemId'] == relay['System-Id']:
+                    this_relay['Name'] = relay['Name']
+                    this_relay['Type'] = relay['Type']
+                    this_relay['Function'] = relay['Function']
+                relays.append(this_relay)
 
             elif child.tag == "ColorLogic-Light":
-                bow_lights.append(child.attrib)
+                this_light = child.attrib
+                for light in bow_item['Lights']:
+                  if this_light['systemId'] == light['System-Id']:
+                    this_light['Name'] = light['Name']
+                    this_light['Type'] = light['Type']
+                bow_lights.append(this_light)
 
             elif child.tag == "Relay":
-                bow_relays.append(child.attrib)
+                this_relay = child.attrib
+                for relay in bow_item['Relays']:
+                  if this_relay['systemId'] == relay['System-Id']:
+                    this_relay['Name'] = relay['Name']
+                    this_relay['Type'] = relay['Type']
+                    this_relay['Function'] = relay['Function']
+                bow_relays.append(this_relay)
+
+            elif child.tag == "Chlorinator":
+                this_chlorinator = child.attrib
+                this_chlorinator['Name'] = bow_item['Chlorinator']['Name']
+                this_chlorinator['Shared-Type'] = bow_item['Chlorinator']['Shared-Type']
+                this_chlorinator['Operation'] = bow_item['Chlorinator']['Operation']['Chlorinator-Equipment']
+
+                BOW[child.tag] = this_chlorinator
+
+            elif child.tag == "Filter":
+                this_filter = child.attrib
+                this_filter['Name'] = bow_item['Filter']['Name']
+                this_filter['Shared-Type'] = bow_item['Filter']['Shared-Type']
+                this_filter['Filter-Type'] = bow_item['Filter']['Filter-Type']
+                this_filter['Max-Pump-Speed'] = bow_item['Filter']['Max-Pump-Speed']
+                this_filter['Min-Pump-Speed'] = bow_item['Filter']['Min-Pump-Speed']
+                this_filter['Max-Pump-RPM'] = bow_item['Filter']['Max-Pump-RPM']
+                this_filter['Min-Pump-RPM'] = bow_item['Filter']['Min-Pump-RPM']
+                this_filter['Priming-Enabled'] = bow_item['Filter']['Priming-Enabled']
+
+                BOW[child.tag] = this_filter
+            
+            elif child.tag == "Heater":
+                this_heater = child.attrib
+                this_heater['Shared-Type'] = bow_item['Heater']['Shared-Type']
+                ['Max-Settable-Water-Temp']
+                this_heater['Operation'] = {}
+                this_heater['Operation']['VirtualHeater'] = bow_item['Heater']['Operation']['Heater-Equipment']
+                this_heater['Operation']['VirtualHeater']['Current-Set-Point'] = bow_item['Heater']['Current-Set-Point']
+                this_heater['Operation']['VirtualHeater']['Max-Water-Temp'] = bow_item['Heater']['Max-Water-Temp']
+                this_heater['Operation']['VirtualHeater']['Min-Settable-Water-Temp'] = bow_item['Heater']['Min-Settable-Water-Temp']
+                this_heater['Operation']['VirtualHeater']['Max-Settable-Water-Temp'] = bow_item['Heater']['Max-Settable-Water-Temp']
+                this_heater['Operation']['VirtualHeater']['enable'] = bow_item['Heater']['Operation']['Heater-Equipment']['Enabled']
+                this_heater['Operation']['VirtualHeater']['systemId'] = bow_item['Heater']['System-Id']
+                this_heater['systemId'] = bow_item['Heater']['Operation']['Heater-Equipment']['System-Id']
+
+                BOW[child.tag] = this_heater
+
 
             else:
                 BOW[child.tag] = child.attrib
@@ -568,7 +648,7 @@ class OmniLogic:
 
         backyard_list.append(backyard)
 
-        return backyard_list
+        return backyard
 
     async def get_telemetry_data(self):
         if self.token is None:
@@ -578,24 +658,42 @@ class OmniLogic:
 
         # assert self.token != "", "No login token"
         telem_list = []
+        
         if self.token != "" and len(self.systems) != 0:
+          config_data = await self.get_msp_config_file()
           
           for system in self.systems:
+            # Get the right instance of the ID for this system
+            config_item = {}
+
+            for sys_data in config_data:
+              
+              if sys_data['MspSystemID'] == system['MspSystemID']:
+                config_item = sys_data
             
             params = {"Token": self.token, "MspSystemID": system['MspSystemID']}
             
             telem = await self.call_api("GetTelemetryData", params)
             
-            site_telem = {}
-            site_telem['Telemetry'] = self.telemetry_to_json(telem)
-            site_telem['MspSystemID'] = system['MspSystemID']
-            site_telem['BackyardName'] = system['BackyardName']
-
+            site_telem = self.telemetry_to_json(telem, config_item)
+            
+            site_telem['BackyardName'] = config_item['BackyardName']
+            site_telem['Msp-Vsp-Speed-Format'] = config_item['System']['Msp-Vsp-Speed-Format']
+            site_telem['Msp-Time-Format'] = config_item['System']['Msp-Time-Format']
+            site_telem['Units'] = config_item['System']['Units']
+            site_telem['Msp-Chlor-Display'] = config_item['System']['Msp-Chlor-Display']
+            site_telem['Msp-Language'] = config_item['System']['Msp-Language']
+            site_telem['Unit-of-Measurement'] = config_item['System']['Units']
+            site_telem['Unit-of-Temperature'] = config_item['Backyard']['Sensor']['Units']
+            
             telem_list.append(site_telem)
 
         else:
-          return({"Error":"Failure"})
+          return({"Error":"Failure getting telemetry."})
 
+        f = open("telemetry.txt","w")
+        f.write(str(telem_list))
+        f.close()
         return telem_list
 
     # def get_alarm_list(self):

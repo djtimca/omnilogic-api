@@ -24,7 +24,6 @@ A simple example to return the status of your pool equipment is:
 '''
 api_client = OmniLogic(username, password)
 
-config_data = await api_client.get_msp_config_file()
 telemetry_data = await api_client.get_telemetry_data()
 
 
@@ -32,13 +31,15 @@ telemetry_data = await api_client.get_telemetry_data()
 
 ### get_msp_config_file()
 
+** DEPRECATED - ALL CONFIG DATA NOW RETURNED WITH THE TELEMETRY **
+
 Returns the full configuration of the registered Omnilogic System in JSON format with all systems on your account returned in a list and all bodies-of-water captured in a list (BOWS). Additional components like lights and relays are also forced into a list to make them easier to parse. You will need to retain the MspSystemID for each pool system in order to be able to call any of the equipment change methods.
 
-### get_telemetry_data()
+### get_telemetry_data(APIClient)
 
 Returns the status of all of the equipment in the Omnilogic System in JSON format (ie. pump speeds, water temperature, heat setting, etc). This data also is returned as a list with components like lights and relays grouped into lists for easy parsing.
 
-### get_alarm_list
+### get_alarm_list(APIClient)
 
 Returns a list of all alarms on the pool equipment in JSON format. If there are no alarms returns JSON {'BowID', 'False'}. Also returned as a list for all pool systems on your Omnilogic account.
 
