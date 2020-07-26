@@ -4,6 +4,7 @@ import xmltodict
 import collections
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element, SubElement, Comment, tostring
+from enum import Enum
 import asyncio
 import logging
 
@@ -913,3 +914,35 @@ class LoginException(Exception):
 
 class OmniLogicException(Exception):
     pass
+
+
+class LightEffect(Enum):
+    VOODOO_LOUNGE = "0"
+    DEEP_BLUE_SEA = "1"
+    ROYAL_BLUE = "2"
+    AFTERNOON_SKY = "3"
+    AQUA_GREEN = "4"
+    EMERALD = "5"
+    CLOUD_WHITE = "6"
+    WARM_RED = "7"
+    FLAMINGO = "8"
+    VIVID_VIOLET = "9"
+    SANGRIA = "10"
+    TWILIGHT = "11"
+    TRANQUILITY = "12"
+    GEMSTONE = "13"
+    USA = "14"
+    MARDI_GRAS = "15"
+    COOL_CABARET = "16"
+    #### THESE SHOW IN THE APP AFTER SETTING, BUT DO NOT MATCH THE COLOR OF MY LIGHTS
+    # YELLOW = "17"
+    # ORANGE = "18"
+    # GOLD = "19"
+    # MINT = "20"
+    # TEAL = "21"
+    # BURNT_ORANGE = "22"
+    # PURE_WHITE = "23"
+    # CRISP_WHITE = "24"
+    # WARM_WHITE = "25"
+    # BRIGHT_YELLOW = "26"
+
