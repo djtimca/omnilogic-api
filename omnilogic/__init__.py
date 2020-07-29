@@ -782,6 +782,13 @@ class OmniLogic:
 
                 BOW[child.tag] = this_filter
 
+            elif child.tag == "Pump":
+                this_pump = child.attrib
+                this_pump["Name"] = bow_item["Pump"]["Name"]
+                this_pump["Type"] = bow_item["Pump"]["Type"]
+
+                BOW[child.tag] = this_pump
+
             elif child.tag == "Heater":
                 this_heater = child.attrib
                 this_heater["Shared-Type"] = bow_item["Heater"]["Shared-Type"]
@@ -875,9 +882,9 @@ class OmniLogic:
             raise OmniLogicException("Failure getting telemetry.")
             return {"Error": "Failure getting telemetry."}
 
-        f = open("telemetry.txt", "w")
-        f.write(str(telem_list))
-        f.close()
+        #f = open("telemetry.txt", "w")
+        #f.write(str(telem_list))
+        #f.close()
         return telem_list
 
     # def get_alarm_list(self):

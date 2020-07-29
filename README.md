@@ -33,11 +33,11 @@ telemetry_data = await api_client.get_telemetry_data()
 
 ** DEPRECATED - ALL CONFIG DATA NOW RETURNED WITH THE TELEMETRY **
 
-Returns the full configuration of the registered Omnilogic System in JSON format with all systems on your account returned in a list and all bodies-of-water captured in a list (BOWS). Additional components like lights and relays are also forced into a list to make them easier to parse. You will need to retain the MspSystemID for each pool system in order to be able to call any of the equipment change methods.
+Returns the full configuration of the registered Omnilogic System in JSON format with all systems on your account returned in a list and all bodies-of-water captured in a list (BOWS). Additional components like lights and relays are also forced into a list to make them easier to parse. You will need to retain the MspSystemID for each pool system in order to be able to call any of the equipment change methods. Left available to allow retrieval of new configurations for addition to the get_telemetry_data method as development continues.
 
 ### get_telemetry_data(APIClient)
 
-Returns the status of all of the equipment in the Omnilogic System in JSON format (ie. pump speeds, water temperature, heat setting, etc). This data also is returned as a list with components like lights and relays grouped into lists for easy parsing.
+Returns the status of all of the equipment in the Omnilogic System in JSON format (ie. pump speeds, water temperature, heat setting, etc). This data also is returned as a list with components like lights and relays grouped into lists for easy parsing. Includes key config data such as SystemIds, equipment names, equipment parameters (max/min speed etc).
 
 ### get_alarm_list(APIClient)
 
