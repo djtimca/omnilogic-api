@@ -786,6 +786,9 @@ class OmniLogic:
                 this_pump = child.attrib
                 this_pump["Name"] = bow_item["Pump"]["Name"]
                 this_pump["Type"] = bow_item["Pump"]["Type"]
+                this_pump["Function"] = bow_item["Pump"]["Function"]
+                this_pump["Min-Pump-Speed"] = bow_item["Pump"]["Function"]
+                this_pump["Max-Pump_Speed"] = bow_item["Pump"]["Function"]
 
                 BOW[child.tag] = this_pump
 
