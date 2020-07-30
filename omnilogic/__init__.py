@@ -763,9 +763,13 @@ class OmniLogic:
                 this_chlorinator = child.attrib
                 this_chlorinator["Name"] = bow_item["Chlorinator"]["Name"]
                 this_chlorinator["Shared-Type"] = bow_item["Chlorinator"]["Shared-Type"]
-                this_chlorinator["Operation"] = bow_item["Chlorinator"]["Operation"][
-                    "Chlorinator-Equipment"
-                ]
+                this_chlorinator["Operation"] = []
+
+                if type(bow_item["Chlorinator"]["Operation"]) == dict:
+                    this_chlorinator["Operation"].append(bow_item["Chlorinator"]["Operation"]["Chlorinator-Equipment"])
+                else:
+                    for equipment in bow_item["Chlorinator"]["Operation"]:
+                        this_chlorinator["Operation"].append(equipment)
 
                 BOW[child.tag] = this_chlorinator
 
