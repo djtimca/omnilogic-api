@@ -329,6 +329,7 @@ class OmniLogic:
 
                 mspconfig_list.append(configitem)
 
+            
             return mspconfig_list
         else:
             raise OmniLogicException("Failed getting MSP Config Data.")
@@ -676,6 +677,7 @@ class OmniLogic:
         relays = []
         bow_lights = []
         bow_relays = []
+        bow_pumps = []
         bow_item = {}
 
         backyard_name = ""
@@ -692,6 +694,7 @@ class OmniLogic:
                 else:
                     BOW["Lights"] = bow_lights
                     BOW["Relays"] = bow_relays
+                    BOW["Pumps"] = bow_pumps
                     BOW_list.append(BOW)
                     backyard["BOWS"] = BOW_list
                     backyard_list.append(backyard)
@@ -716,6 +719,7 @@ class OmniLogic:
                 else:
                     BOW["Lights"] = bow_lights
                     BOW["Relays"] = bow_relays
+                    BOW["Pumps"] = bow_pumps
 
                     BOW_list.append(BOW)
 
@@ -788,13 +792,24 @@ class OmniLogic:
 
             elif child.tag == "Pump":
                 this_pump = child.attrib
-                this_pump["Name"] = bow_item["Pump"]["Name"]
-                this_pump["Type"] = bow_item["Pump"]["Type"]
-                this_pump["Function"] = bow_item["Pump"]["Function"]
-                this_pump["Min-Pump-Speed"] = bow_item["Pump"]["Function"]
-                this_pump["Max-Pump_Speed"] = bow_item["Pump"]["Function"]
 
-                BOW[child.tag] = this_pump
+                if type(bow_item["Pump"]) == dict:
+                  this_pump["Name"] = bow_item["Pump"]["Name"]
+                  this_pump["Type"] = bow_item["Pump"]["Type"]
+                  this_pump["Function"] = bow_item["Pump"]["Function"]
+                  this_pump["Min-Pump-Speed"] = bow_item["Pump"]["Min-Pump-Speed"]
+                  this_pump["Max-Pump-Speed"] = bow_item["Pump"]["Max-Pump-Speed"]
+                else:
+                  for pump in bow_item["Pump"]:
+                    #Find the right pump
+                    if pump["System-Id"] == this_pump["systemId"]:
+                      this_pump["Name"] = pump["Name"]
+                      this_pump["Type"] = pump["Type"]
+                      this_pump["Function"] = pump["Function"]
+                      this_pump["Min-Pump-Speed"] = pump["Min-Pump-Speed"]
+                      this_pump["Max-Pump_Speed"] = pump["Max-Pump-Speed"]
+
+                bow_pumps.append(this_pump)
 
             elif child.tag == "Heater":
                 this_heater = child.attrib
@@ -833,6 +848,7 @@ class OmniLogic:
 
         BOW["Lights"] = bow_lights
         BOW["Relays"] = bow_relays
+        BOW["Pumps"] = bow_pumps
         BOW_list.append(BOW)
 
         backyard["BOWS"] = BOW_list
@@ -852,7 +868,13 @@ class OmniLogic:
 
         if self.token != "" and len(self.systems) != 0:
             config_data = await self.get_msp_config_file()
-
+            
+            """
+            f = open("mspconfig_" + self.username + ".txt", "w")
+            f.write(str(config_data))
+            f.close()
+            """
+            
             for system in self.systems:
                 # Get the right instance of the ID for this system
                 config_item = {}
@@ -879,9 +901,15 @@ class OmniLogic:
                 ]
                 site_telem["Msp-Language"] = config_item["System"]["Msp-Language"]
                 site_telem["Unit-of-Measurement"] = config_item["System"]["Units"]
-                site_telem["Unit-of-Temperature"] = config_item["Backyard"]["Sensor"][
-                    "Units"
-                ]
+
+                if type(config_item["Backyard"]["Sensor"]) == dict:
+                  site_telem["Unit-of-Temperature"] = config_item["Backyard"]["Sensor"][
+                      "Units"
+                  ]
+                else:
+                  for sensor in config_item["Backyard"]["Sensor"]:
+                    if sensor["Name"] == "AirSensor":
+                      site_telem["Unit-of-Temperature"] = sensor["Units"]
 
                 telem_list.append(site_telem)
 
@@ -889,9 +917,12 @@ class OmniLogic:
             raise OmniLogicException("Failure getting telemetry.")
             return {"Error": "Failure getting telemetry."}
 
-        #f = open("telemetry.txt", "w")
-        #f.write(str(telem_list))
-        #f.close()
+        """
+        f = open("telemetry_" + self.username + ".txt", "w")
+        f.write(str(telem_list))
+        f.close()
+        """
+        
         return telem_list
 
     # def get_alarm_list(self):
