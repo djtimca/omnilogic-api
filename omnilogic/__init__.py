@@ -98,7 +98,8 @@ class OmniLogic:
             try:
                 response = await resp.text()
             except aiohttp.ClientConnectorError as e:
-                raise HTTPException(e)
+                return {"Error":"Failed: " + e}
+                #raise LoginException(e)
 
         responseXML = ElementTree.fromstring(response)
 
@@ -132,7 +133,7 @@ class OmniLogic:
         response = await self.call_api("Login", params)
 
         if "There is no information" in response:
-            raise OmniLogicException("Failure getting token.")
+            #raise OmniLogicException("Failure getting token.")
             return '{"Error":"Failed"}'
         else:
             root = ElementTree.fromstring(response)
@@ -332,7 +333,7 @@ class OmniLogic:
             
             return mspconfig_list
         else:
-            raise OmniLogicException("Failed getting MSP Config Data.")
+            #raise OmniLogicException("Failed getting MSP Config Data.")
             return '{"Error":"Failed getting MSP Config Data."}'
 
     async def get_BOWS(self):
@@ -382,7 +383,7 @@ class OmniLogic:
                 site_alarms["BackyardName"] = system["BackyardName"]
                 alarmslist.append(site_alarms)
         else:
-            raise OmniLogicException("Failure getting alarms.")
+            #raise OmniLogicException("Failure getting alarms.")
             return {"Error": "Failure getting alarms."}
 
         return alarmslist
@@ -914,7 +915,7 @@ class OmniLogic:
                 telem_list.append(site_telem)
 
         else:
-            raise OmniLogicException("Failure getting telemetry.")
+            #raise OmniLogicException("Failure getting telemetry.")
             return {"Error": "Failure getting telemetry."}
 
         """
@@ -922,7 +923,7 @@ class OmniLogic:
         f.write(str(telem_list))
         f.close()
         """
-        
+
         return telem_list
 
     # def get_alarm_list(self):
