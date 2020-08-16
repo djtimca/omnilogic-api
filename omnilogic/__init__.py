@@ -12,14 +12,8 @@ import logging
 import aiohttp
 
 HAYWARD_API_URL = "https://app1.haywardomnilogic.com/HAAPI/HomeAutomation/API.ashx"
-# CONNECT_PARAMS = [
-#     UserName = "",
-#     Password = ""
-# ]
 
-# get_msp_config_file = {}
 _LOGGER = logging.getLogger("omnilogic")
-
 
 class OmniLogic:
     def __init__(self, username, password):
@@ -98,8 +92,7 @@ class OmniLogic:
             try:
                 response = await resp.text()
             except aiohttp.ClientConnectorError as e:
-                return {"Error":"Failed: " + e}
-                #raise LoginException(e)
+                raise LoginException(e)
 
         responseXML = ElementTree.fromstring(response)
 
@@ -115,7 +108,7 @@ class OmniLogic:
         if methodName == "Login" and "There is no information" in response:
             # login invalid
             # response = {"Error":"Failed login"}
-            raise LoginException("Bad username or password")
+            raise LoginException("Failed Login: Bad username or password")
 
         if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) != 0:
             self.request_statusmessage = responseXML.find(
@@ -133,8 +126,8 @@ class OmniLogic:
         response = await self.call_api("Login", params)
 
         if "There is no information" in response:
-            #raise OmniLogicException("Failure getting token.")
-            return '{"Error":"Failed"}'
+            raise OmniLogicException("Failure getting token.")
+
         else:
             root = ElementTree.fromstring(response)
             userid = root[1][2].text
@@ -333,8 +326,7 @@ class OmniLogic:
             
             return mspconfig_list
         else:
-            #raise OmniLogicException("Failed getting MSP Config Data.")
-            return '{"Error":"Failed getting MSP Config Data."}'
+            raise OmniLogicException("Failed getting MSP Config Data.")
 
     async def get_BOWS(self):
         # DEPRECATED - USE get_msp_config_data instead.
@@ -383,8 +375,7 @@ class OmniLogic:
                 site_alarms["BackyardName"] = system["BackyardName"]
                 alarmslist.append(site_alarms)
         else:
-            #raise OmniLogicException("Failure getting alarms.")
-            return {"Error": "Failure getting alarms."}
+            raise OmniLogicException("Failure getting alarms.")
 
         return alarmslist
 
@@ -915,8 +906,7 @@ class OmniLogic:
                 telem_list.append(site_telem)
 
         else:
-            #raise OmniLogicException("Failure getting telemetry.")
-            return {"Error": "Failure getting telemetry."}
+            raise OmniLogicException("Failure getting telemetry.")
 
         """
         f = open("telemetry_" + self.username + ".txt", "w")
