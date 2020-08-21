@@ -658,7 +658,7 @@ class OmniLogic:
 
         return alarmslist
 
-    def telemetry_to_json(self, telemetry, config_data):
+    def telemetry_to_json(self, telemetry, config_data, site_alarms):
         telemetryXML = ElementTree.fromstring(telemetry)
         backyard = {}
 
@@ -736,6 +736,11 @@ class OmniLogic:
                         this_relay["Name"] = relay["Name"]
                         this_relay["Type"] = relay["Type"]
                         this_relay["Function"] = relay["Function"]
+                        this_relay["Alarms"] = []
+                    for alarm in site_alarms:
+                        if alarm["EquipmentID"] == this_relay["systemId"]:
+                            this_relay["Alarms"].append(alarm)
+
                 relays.append(this_relay)
 
             elif child.tag == "ColorLogic-Light":
@@ -744,6 +749,11 @@ class OmniLogic:
                     if this_light["systemId"] == light["System-Id"]:
                         this_light["Name"] = light["Name"]
                         this_light["Type"] = light["Type"]
+                        this_light["Alarms"] = []
+                    for alarm in site_alarms:
+                        if bow_item["System-Id"] == alarm["BowID"] and this_light["systemId"] == alarm["EquipmentID"]:
+                            this_light["Alarms"].append(alarm)
+
                 bow_lights.append(this_light)
 
             elif child.tag == "Relay":
@@ -753,6 +763,11 @@ class OmniLogic:
                         this_relay["Name"] = relay["Name"]
                         this_relay["Type"] = relay["Type"]
                         this_relay["Function"] = relay["Function"]
+                        this_relay["Alarms"] = []
+                    for alarm in site_alarms:
+                        if bow_item["System-Id"] == alarm["BowID"] and this_relay["systemId"] == alarm["EquipmentID"]:
+                            this_relay["Alarms"].append(alarm)
+
                 bow_relays.append(this_relay)
 
             elif child.tag == "Chlorinator":
@@ -760,12 +775,19 @@ class OmniLogic:
                 this_chlorinator["Name"] = bow_item["Chlorinator"]["Name"]
                 this_chlorinator["Shared-Type"] = bow_item["Chlorinator"]["Shared-Type"]
                 this_chlorinator["Operation"] = []
+                this_chlorinator["Alarms"] = []
 
                 if type(bow_item["Chlorinator"]["Operation"]) == dict:
                     this_chlorinator["Operation"].append(bow_item["Chlorinator"]["Operation"]["Chlorinator-Equipment"])
+                    for alarm in site_alarms:
+                        if bow_item["System-Id"] == alarm["BowID"] and this_chlorinator["systemId"] == alarm["EquipmentID"]:
+                            this_chlorinator["Alarms"].append(alarm)
                 else:
                     for equipment in bow_item["Chlorinator"]["Operation"]:
                         this_chlorinator["Operation"].append(equipment)
+                        for alarm in site_alarms:
+                            if bow_item["System-Id"] == alarm["BowID"] and this_chlorinator["systemId"] == alarm["EquipmentID"]:
+                                this_chlorinator["Alarms"].append(alarm)
 
                 BOW[child.tag] = this_chlorinator
 
@@ -779,6 +801,11 @@ class OmniLogic:
                 this_filter["Max-Pump-RPM"] = bow_item["Filter"]["Max-Pump-RPM"]
                 this_filter["Min-Pump-RPM"] = bow_item["Filter"]["Min-Pump-RPM"]
                 this_filter["Priming-Enabled"] = bow_item["Filter"]["Priming-Enabled"]
+                this_filter["Alarms"] = []
+
+                for alarm in site_alarms:
+                    if bow_item["System-Id"] == alarm["BowID"] and this_filter["systemId"] == alarm["EquipmentID"]:
+                        this_filter["Alarms"].append(alarm)
 
                 BOW[child.tag] = this_filter
 
@@ -791,6 +818,11 @@ class OmniLogic:
                   this_pump["Function"] = bow_item["Pump"]["Function"]
                   this_pump["Min-Pump-Speed"] = bow_item["Pump"]["Min-Pump-Speed"]
                   this_pump["Max-Pump-Speed"] = bow_item["Pump"]["Max-Pump-Speed"]
+                  this_pump["Alarms"] = []
+
+                  for alarm in site_alarms:
+                      if bow_item["System-Id"] == alarm["BowID"] and this_pump["systemId"] == alarm["EquipmentID"]:
+                          this_pump["Alarms"].append(alarm)
                 else:
                   for pump in bow_item["Pump"]:
                     #Find the right pump
@@ -800,6 +832,11 @@ class OmniLogic:
                       this_pump["Function"] = pump["Function"]
                       this_pump["Min-Pump-Speed"] = pump["Min-Pump-Speed"]
                       this_pump["Max-Pump_Speed"] = pump["Max-Pump-Speed"]
+                      this_pump["Alarms"] = []
+                      
+                      for alarm in site_alarms:
+                          if bow_item["System-Id"] == alarm["BowID"] and this_pump["systemId"] == alarm["EquipmentID"]:
+                              this_pump["Alarms"].append(alarm)
 
                 bow_pumps.append(this_pump)
 
@@ -832,9 +869,24 @@ class OmniLogic:
                 this_heater["systemId"] = bow_item["Heater"]["Operation"][
                     "Heater-Equipment"
                 ]["System-Id"]
+                this_heater["Alarms"] = []
+
+                for alarm in site_alarms:
+                    if bow_item["System-Id"] == alarm["BowID"] and this_heater["systemId"] == alarm["EquipmentID"]:
+                        this_heater["Alarms"].append(alarm)
 
                 BOW[child.tag] = this_heater
 
+            elif child.tag == "CSAD":
+                this_csad = child.attrib
+                this_csad["Alarms"] = []
+
+                for alarm in site_alarms:
+                    if bow_item["System-Id"] == alarm["BowID"] and this_csad["systemId"] == alarm["EquipmentID"]:
+                        this_csad["Alarms"].append(alarm)
+                
+                BOW[child.tag] = this_csad
+                
             else:
                 BOW[child.tag] = child.attrib
 
@@ -879,8 +931,19 @@ class OmniLogic:
                 params = {"Token": self.token, "MspSystemID": system["MspSystemID"]}
 
                 telem = await self.call_api("GetTelemetryData", params)
+                
+                params = {
+                    "Token": self.token,
+                    "MspSystemID": system["MspSystemID"],
+                    "Version": "0",
+                }
+                site_alarms = []
 
-                site_telem = self.telemetry_to_json(telem, config_item)
+                this_alarm = await self.call_api("GetAlarmList", params)
+
+                site_alarms.append(self.alarms_to_json(this_alarm))
+                
+                site_telem = self.telemetry_to_json(telem, config_item, self.alarms_to_json(this_alarm))
 
                 site_telem["BackyardName"] = config_item["BackyardName"]
                 site_telem["Msp-Vsp-Speed-Format"] = config_item["System"][
