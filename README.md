@@ -37,11 +37,11 @@ Returns the full configuration of the registered Omnilogic System in JSON format
 
 ### get_telemetry_data(APIClient)
 
-Returns the status of all of the equipment in the Omnilogic System in JSON format (ie. pump speeds, water temperature, heat setting, etc). This data also is returned as a list with components like lights and relays grouped into lists for easy parsing. Includes key config data such as SystemIds, equipment names, equipment parameters (max/min speed etc).
+Returns the status of all of the equipment in the Omnilogic System in JSON format (ie. pump speeds, water temperature, heat setting, etc). This data also is returned as a list with components like lights and relays grouped into lists for easy parsing. Includes key config data such as SystemIds, equipment names, equipment parameters (max/min speed etc) and alarms for common pool components.
 
 ### get_alarm_list(APIClient)
 
-Returns a list of all alarms on the pool equipment in JSON format. If there are no alarms returns JSON {'BowID', 'False'}. Also returned as a list for all pool systems on your Omnilogic account.
+Returns a list of all alarms on the pool equipment in JSON format. If there are no alarms returns JSON {'BowID', 'False'}. Also returned as a list for all pool systems on your Omnilogic account. Note that alarm information is also returned in the get_telemetry_data method so unless you need just the full list of alarms this should not be needed.
 
 ### set_heater_onoff(APIClient, MSPSystemID, PoolID, HeaterID, HeaterEnable)
 
