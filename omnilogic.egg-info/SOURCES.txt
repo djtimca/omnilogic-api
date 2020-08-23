@@ -1,0 +1,10 @@
+MANIFEST.in
+README.md
+setup.cfg
+setup.py
+omnilogic/__init__.py
+omnilogic.egg-info/PKG-INFO
+omnilogic.egg-info/SOURCES.txt
+omnilogic.egg-info/dependency_links.txt
+omnilogic.egg-info/requires.txt
+omnilogic.egg-info/top_level.txt

@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup
 
 with open("README.md","r") as fh:
   long_description = fh.read()
@@ -10,6 +10,7 @@ setup(
   license='apache-2.0',
   description = 'Integration for the Hayward OmniLogic pool control system',
   long_description = long_description,
+  long_description_content_type = "text/markdown",
   author = 'Tim Empringham',
   author_email = 'tim.empringham@live.ca',
   url = 'https://github.com/djtimca/omnilogic-api',
