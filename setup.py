@@ -1,15 +1,19 @@
 from distutils.core import setup
 
+with open("README.md","r") as fh:
+  long_description = fh.read()
+
 setup(
   name = 'omnilogic',
   packages = ['omnilogic'],
-  version = '0.3.7',
+  version = '0.3.8',
   license='apache-2.0',
   description = 'Integration for the Hayward OmniLogic pool control system',
+  long_description = long_description,
   author = 'Tim Empringham',
   author_email = 'tim.empringham@live.ca',
   url = 'https://github.com/djtimca/omnilogic-api',
-  download_url = 'https://github.com/djtimca/omnilogic-api/archive/v_037.tar.gz',
+  download_url = 'https://github.com/djtimca/omnilogic-api/archive/v_038.tar.gz',
   keywords = ['OmniLogic', 'Hayward', 'Pool', 'Spa'],
   install_requires=[
           'xmltodict',

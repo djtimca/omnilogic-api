@@ -937,11 +937,12 @@ class OmniLogic:
                     "MspSystemID": system["MspSystemID"],
                     "Version": "0",
                 }
-                site_alarms = []
 
                 this_alarm = await self.call_api("GetAlarmList", params)
 
-                site_alarms.append(self.alarms_to_json(this_alarm))
+                site_alarms = self.alarms_to_json(this_alarm)
+                if site_alarms[0]["BowID"] == "False":
+                    site_alarms = []
                 
                 site_telem = self.telemetry_to_json(telem, config_item, self.alarms_to_json(this_alarm))
 
@@ -956,6 +957,7 @@ class OmniLogic:
                 ]
                 site_telem["Msp-Language"] = config_item["System"]["Msp-Language"]
                 site_telem["Unit-of-Measurement"] = config_item["System"]["Units"]
+                site_telem["Alarms"] = site_alarms
 
                 if type(config_item["Backyard"]["Sensor"]) == dict:
                   site_telem["Unit-of-Temperature"] = config_item["Backyard"]["Sensor"][
