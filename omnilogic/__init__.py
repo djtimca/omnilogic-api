@@ -675,6 +675,9 @@ class OmniLogic:
         backyard_name = ""
         BOWname = ""
 
+        if site_alarms[0].get("BowID") == "False":
+            site_alarms = []
+
         for child in telemetryXML:
             if "version" in child.attrib:
                 continue
@@ -941,7 +944,8 @@ class OmniLogic:
                 this_alarm = await self.call_api("GetAlarmList", params)
 
                 site_alarms = self.alarms_to_json(this_alarm)
-                if site_alarms[0]["BowID"] == "False":
+
+                if site_alarms[0].get("BowID") == "False":
                     site_alarms = []
                 
                 site_telem = self.telemetry_to_json(telem, config_item, self.alarms_to_json(this_alarm))
