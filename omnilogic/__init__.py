@@ -882,7 +882,7 @@ class OmniLogic:
                 this_csad["Alarms"] = []
 
                 for alarm in site_alarms:
-                    if bow_item["System-Id"] == alarm["BowID"] and this_csad["systemId"] == alarm["EquipmentID"]:
+                    if this_csad["systemId"] == alarm["EquipmentID"]:
                         this_csad["Alarms"].append(alarm)
                 
                 BOW[child.tag] = this_csad
