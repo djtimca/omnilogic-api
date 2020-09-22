@@ -16,7 +16,7 @@ HAYWARD_API_URL = "https://app1.haywardomnilogic.com/HAAPI/HomeAutomation/API.as
 _LOGGER = logging.getLogger("omnilogic")
 
 class OmniLogic:
-    def __init__(self, username, password):
+    def __init__(self, username, password, session:aiohttp.ClientSession = None):
         self.username = username
         self.password = password
         self.systemid = None
@@ -26,7 +26,11 @@ class OmniLogic:
         self.verbose = True
         self.logged_in = False
         self.retry = 5
-        self._session = aiohttp.ClientSession()
+        if session is None:
+            self._session = aiohttp.ClientSession()
+        else:
+            self._session = session
+            
         self.systems = []
 
     async def close(self):
