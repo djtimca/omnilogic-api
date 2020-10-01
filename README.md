@@ -100,6 +100,18 @@ Turns on and sets the desired lightshow for V1 (non-brightness/speed controlled)
 |14|Show-USA|
 |15|Show-Mardi Gras|
 |16|Show-Cool Cabaret|
+|17|YELLOW|
+|18|ORANGE|
+|19|GOLD|
+|20|MINT|
+|21|TEAL|
+|22|BURNT_ORANGE|
+|23|PURE_WHITE|
+|24|CRISP_WHITE|
+|25|WARM_WHITE|
+|26|BRIGHT_YELLOW|
+
+Note that show 17-26 may not be supported by all ColorLogic Light Systems.
 
 ### set_lightshowv2(APIClient, MspSystemID, PoolID, LightID, ShowID, Speed, Brightness)
 
