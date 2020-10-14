@@ -250,6 +250,7 @@ class OmniLogic:
 
                     bow_relays = []
                     bow_lights = []
+                    bow_heaters = []
 
                     if "Relay" in BOW:
                         try:
@@ -266,9 +267,31 @@ class OmniLogic:
                                 bow_relays.append(
                                     configitem["Backyard"]["Body-of-water"]["Relay"]
                                 )
+
+                    if "Heater" in BOW:
+                        this_bow = json.loads(BOW)
+                        if isinstance(this_bow["Heater"]["Operation"], list):
+                            for heater in this_bow["Heater"]["Operation"]:
+                                this_heater = {}
+                                this_heater["Name"] = heater["Heater-Equipment"]["Name"]
+                                this_heater["System-Id"] = this_bow["Heater"]["System-Id"]
+                                this_heater["Shared-Type"] = this_bow["Heater"]["Shared-Type"]
+                                this_heater["Enabled"] = this_bow["Heater"]["Enabled"]
+                                this_heater["Current-Set-Point"] = this_bow["Heater"]["Current-Set-Point"]
+                                this_heater["Max-Water-Temp"] = this_bow["Heater"]["Max-Water-Temp"]
+                                this_heater["Min-Settable-Water-Temp"] = this_bow["Heater"]["Min-Settable-Water-Temp"]
+                                this_heater["Max-Settable-Water-Temp"] = this_bow["Heater"]["Max-Settable-Water-Temp"]
+                                this_heater["Operation"] = heater
+                                bow_heaters.append(this_heater)
+                        else:
+                            bow_heaters.append(this_bow["Heater"])
+                            
+                        
                     if "ColorLogic-Light" in BOW:
                         try:
                             for light in BOW["ColorLogic-Light"]:
+                                if "V2-Active" not in light:
+                                    light["V2-Active"] = "no"
                                 bow_lights.append(light)
                         except:
                             if isinstance(
@@ -277,25 +300,31 @@ class OmniLogic:
                                 ],
                                 list,
                             ):
-                                bow_lights = configitem["Backyard"]["Body-of-water"][
+                                for light in configitem["Backyard"]["Body-of-water"][
+                                    "ColorLogic-Light"
+                                ]:
+                                    if "V2-Active" not in light:
+                                        light["V2-Active"] = "no"
+                                    bow_lights.append(light)
+                            else:
+                                light = configitem["Backyard"]["Body-of-water"][
                                     "ColorLogic-Light"
                                 ]
-                            else:
-                                bow_lights.append(
-                                    configitem["Backyard"]["Body-of-water"][
-                                        "ColorLogic-Light"
-                                    ]
-                                )
+                                if "V2-Active" not in light:
+                                    light["V2-Active"] = "no"
+                                bow_lights.append(light)
 
                     BOW = json.loads(BOW)
                     BOW["Relays"] = bow_relays
                     BOW["Lights"] = bow_lights
+                    BOW["Heaters"] = bow_heaters
 
                     BOW_list.append(BOW)
                 else:
                     for BOW in configitem["Backyard"]["Body-of-water"]:
                         bow_relays = []
                         bow_lights = []
+                        bow_heaters = []
 
                         if "Relay" in BOW:
                             try:
@@ -307,19 +336,43 @@ class OmniLogic:
                                         bow_relays.append(relay)
                             except:
                                 bow_relays.append(BOW["Relay"])
+
+                        if "Heater" in BOW:
+                            if isinstance(BOW["Heater"]["Operation"], list):
+                                for heater in BOW["Heater"]["Operation"]:
+                                    this_heater = {}
+                                    this_heater["Name"] = heater["Heater-Equipment"]["Name"]
+                                    this_heater["System-Id"] = BOW["Heater"]["System-Id"]
+                                    this_heater["Shared-Type"] = BOW["Heater"]["Shared-Type"]
+                                    this_heater["Enabled"] = BOW["Heater"]["Enabled"]
+                                    this_heater["Current-Set-Point"] = BOW["Heater"]["Current-Set-Point"]
+                                    this_heater["Max-Water-Temp"] = BOW["Heater"]["Max-Water-Temp"]
+                                    this_heater["Min-Settable-Water-Temp"] = BOW["Heater"]["Min-Settable-Water-Temp"]
+                                    this_heater["Max-Settable-Water-Temp"] = BOW["Heater"]["Max-Settable-Water-Temp"]
+                                    this_heater["Operation"] = heater
+                                    bow_heaters.append(this_heater)
+                            else:
+                                bow_heaters.append(BOW["Heater"])
+                        
                         if "ColorLogic-Light" in BOW:
                             try:
                                 for light in BOW["ColorLogic-Light"]:
                                     if type(light) == str:
-                                        bow_lights.append(BOW["ColorLogic-Light"])
+                                        this_light = BOW["ColorLogic-Light"]
+                                        if "V2-Active" not in this_light:
+                                            this_light["V2-Active"] = "no"
+                                        bow_lights.append(this_light)
                                         break
                                     else:
+                                        if "V2-Active" not in light:
+                                            light["V2-Active"] = "no"
                                         bow_lights.append(light)
                             except:
                                 bow_lights.append(BOW["ColorLogic-Light"])
 
                         BOW["Relays"] = bow_relays
                         BOW["Lights"] = bow_lights
+                        BOW["Heaters"] = bow_heaters
 
                         BOW_list.append(BOW)
 
@@ -674,6 +727,7 @@ class OmniLogic:
         bow_lights = []
         bow_relays = []
         bow_pumps = []
+        bow_heaters = []
         bow_item = {}
 
         backyard_name = ""
@@ -694,6 +748,7 @@ class OmniLogic:
                     BOW["Lights"] = bow_lights
                     BOW["Relays"] = bow_relays
                     BOW["Pumps"] = bow_pumps
+                    BOW["Heaters"] = bow_heaters
                     BOW_list.append(BOW)
                     backyard["BOWS"] = BOW_list
                     backyard_list.append(backyard)
@@ -703,6 +758,7 @@ class OmniLogic:
                     BOW_list = []
                     bow_lights = []
                     bow_relays = []
+                    bow_heaters = []
                     relays = []
                     BOWname = ""
 
@@ -719,12 +775,14 @@ class OmniLogic:
                     BOW["Lights"] = bow_lights
                     BOW["Relays"] = bow_relays
                     BOW["Pumps"] = bow_pumps
+                    BOW["Heaters"] = bow_heaters
 
                     BOW_list.append(BOW)
 
                     BOW = {}
                     bow_lights = []
                     bow_relays = []
+                    bow_heaters = []
 
                     BOWname = "BOW" + str(child.attrib["systemId"])
 
@@ -756,6 +814,7 @@ class OmniLogic:
                     if this_light["systemId"] == light["System-Id"]:
                         this_light["Name"] = light["Name"]
                         this_light["Type"] = light["Type"]
+                        this_light["V2"] = light["V2-Active"]
                         this_light["Alarms"] = []
                     for alarm in site_alarms:
                         if bow_item["System-Id"] == alarm["BowID"] and this_light["systemId"] == alarm["EquipmentID"]:
@@ -849,35 +908,28 @@ class OmniLogic:
 
             elif child.tag == "Heater":
                 this_heater = child.attrib
-                this_heater["Shared-Type"] = bow_item["Heater"]["Shared-Type"]
-                ["Max-Settable-Water-Temp"]
-                this_heater["Operation"] = {}
-                this_heater["Operation"]["VirtualHeater"] = bow_item["Heater"][
-                    "Operation"
-                ]["Heater-Equipment"]
-                this_heater["Operation"]["VirtualHeater"][
-                    "Current-Set-Point"
-                ] = bow_item["Heater"]["Current-Set-Point"]
-                this_heater["Operation"]["VirtualHeater"]["Max-Water-Temp"] = bow_item[
-                    "Heater"
-                ]["Max-Water-Temp"]
-                this_heater["Operation"]["VirtualHeater"][
-                    "Min-Settable-Water-Temp"
-                ] = bow_item["Heater"]["Min-Settable-Water-Temp"]
-                this_heater["Operation"]["VirtualHeater"][
-                    "Max-Settable-Water-Temp"
-                ] = bow_item["Heater"]["Max-Settable-Water-Temp"]
-                this_heater["Operation"]["VirtualHeater"]["enable"] = bow_item[
-                    "Heater"
-                ]["Operation"]["Heater-Equipment"]["Enabled"]
-                this_heater["Operation"]["VirtualHeater"]["systemId"] = bow_item[
-                    "Heater"
-                ]["System-Id"]
-                this_heater["systemId"] = bow_item["Heater"]["Operation"][
-                    "Heater-Equipment"
-                ]["System-Id"]
-                this_heater["Alarms"] = []
 
+                for heater in bow_item["Heaters"]:
+                    if this_heater["systemId"] == heater["Operation"]["Heater-Equipment"]["System-Id"]:
+                        this_heater["Shared-Type"] = heater["Shared-Type"]
+                        this_heater["Operation"] = {}
+                        this_heater["Operation"]["VirtualHeater"] = heater["Operation"]["Heater-Equipment"]
+                        this_heater["Operation"]["VirtualHeater"]["Current-Set-Point"] = heater["Current-Set-Point"]
+                        this_heater["Operation"]["VirtualHeater"]["Max-Water-Temp"] = heater["Max-Water-Temp"]
+                        this_heater["Operation"]["VirtualHeater"]["Min-Settable-Water-Temp"] = heater["Min-Settable-Water-Temp"]
+                        this_heater["Operation"]["VirtualHeater"]["Max-Settable-Water-Temp"] = heater["Max-Settable-Water-Temp"]
+                        this_heater["Operation"]["VirtualHeater"]["enable"] = heater["Operation"]["Heater-Equipment"]["Enabled"]
+                        this_heater["Operation"]["VirtualHeater"]["systemId"] = heater["System-Id"]
+                        this_heater["systemId"] = heater["Operation"]["Heater-Equipment"]["System-Id"]
+                        this_heater["Name"] = heater["Operation"]["Heater-Equipment"]["Name"]
+                        this_heater["Alarms"] = []
+                        for alarm in site_alarms:
+                            if bow_item["System-Id"] == alarm["BowID"] and this_heater["systemId"] == alarm["EquipmentID"]:
+                                this_heater["Alarms"].append(alarm)
+
+                bow_heaters.append(this_heater)
+
+                
                 for alarm in site_alarms:
                     if bow_item["System-Id"] == alarm["BowID"] and this_heater["systemId"] == alarm["EquipmentID"]:
                         this_heater["Alarms"].append(alarm)
@@ -900,6 +952,7 @@ class OmniLogic:
         BOW["Lights"] = bow_lights
         BOW["Relays"] = bow_relays
         BOW["Pumps"] = bow_pumps
+        BOW["Heaters"] = bow_heaters
         BOW_list.append(BOW)
 
         backyard["BOWS"] = BOW_list
