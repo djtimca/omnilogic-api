@@ -7,25 +7,25 @@ Integration library for Hayward Omnilogic pool controllers to allow easy integra
 
 To download OmniLogic, either fork this github repo or simply use PyPi via pip.
 
-'''
+```bash
 $ pip install omnilogic
-'''
+```
 
 ## Using it
 
 OmniLogic provides just the core actions, you will need to code your own specific use of the returned data.
 
-'''
+```python
 from omnilogic import OmniLogic
-'''
+```
 
 A simple example to return the status of your pool equipment is:
 
-'''
+```ython
 api_client = OmniLogic(username, password)
 
 telemetry_data = await api_client.get_telemetry_data()
-
+```
 
 ## Functions
 
