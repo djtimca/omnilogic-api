@@ -21,7 +21,7 @@ from omnilogic import OmniLogic
 
 A simple example to return the status of your pool equipment is:
 
-```ython
+```python
 api_client = OmniLogic(username, password)
 
 telemetry_data = await api_client.get_telemetry_data()
