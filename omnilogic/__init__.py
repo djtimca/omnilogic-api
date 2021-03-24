@@ -11,7 +11,7 @@ import logging
 # import config
 import aiohttp
 
-HAYWARD_API_URL = "https://app1.haywardomnilogic.com/HAAPI/HomeAutomation/API.ashx"
+HAYWARD_API_URL = "https://www.haywardomnilogic.com/HAAPI/HomeAutomation/API.ashx"
 
 _LOGGER = logging.getLogger("omnilogic")
 
