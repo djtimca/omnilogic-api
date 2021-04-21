@@ -5,3 +5,5 @@ omnilogic/config.py
 __pycache__/config.cpython-38.pyc
 MANIFEST
 omnilogic/omnilogic.py
+*egg-info/
+.vscode/
