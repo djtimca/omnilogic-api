@@ -6,7 +6,7 @@ with open("README.md","r") as fh:
 setup(
   name = 'omnilogic',
   packages = ['omnilogic'],
-  version = '0.4.3',
+  version = '0.4.4',
   license='apache-2.0',
   description = 'Integration for the Hayward OmniLogic pool control system',
   long_description = long_description,
@@ -14,7 +14,7 @@ setup(
   author = 'Tim Empringham',
   author_email = 'tim.empringham@live.ca',
   url = 'https://github.com/djtimca/omnilogic-api',
-  download_url = 'https://github.com/djtimca/omnilogic-api/archive/v_043.tar.gz',
+  download_url = 'https://github.com/djtimca/omnilogic-api/archive/v_044.tar.gz',
   keywords = ['OmniLogic', 'Hayward', 'Pool', 'Spa'],
   install_requires=[
           'xmltodict',
