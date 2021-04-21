@@ -796,7 +796,7 @@ class OmniLogic:
 
             elif child.tag == "Relay" and BOWname == "":
                 this_relay = child.attrib
-                for relay in config_data.get("Relays"):
+                for relay in config_data.get("Relays",[]):
                     if this_relay["systemId"] == relay["System-Id"]:
                         this_relay["Name"] = relay["Name"]
                         this_relay["Type"] = relay["Type"]
@@ -810,7 +810,7 @@ class OmniLogic:
 
             elif child.tag == "ColorLogic-Light":
                 this_light = child.attrib
-                for light in bow_item.get("Lights"):
+                for light in bow_item.get("Lights",[]):
                     if this_light["systemId"] == light["System-Id"]:
                         this_light["Name"] = light["Name"]
                         this_light["Type"] = light["Type"]
@@ -824,7 +824,7 @@ class OmniLogic:
 
             elif child.tag == "Relay":
                 this_relay = child.attrib
-                for relay in bow_item.get("Relays"):
+                for relay in bow_item.get("Relays",[]):
                     if this_relay["systemId"] == relay["System-Id"]:
                         this_relay["Name"] = relay["Name"]
                         this_relay["Type"] = relay["Type"]
