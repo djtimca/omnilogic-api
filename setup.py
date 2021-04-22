@@ -18,7 +18,7 @@ setup(
   keywords = ['OmniLogic', 'Hayward', 'Pool', 'Spa'],
   install_requires=[
           'xmltodict',
-          'config',
+          #'config',
           'aiohttp',
       ],
   classifiers=[
