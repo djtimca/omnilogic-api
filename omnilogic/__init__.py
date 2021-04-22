@@ -8,7 +8,6 @@ from enum import Enum
 import asyncio
 import logging
 
-# import config
 import aiohttp
 
 HAYWARD_API_URL = "https://www.haywardomnilogic.com/HAAPI/HomeAutomation/API.ashx"
