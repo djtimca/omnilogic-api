@@ -1020,14 +1020,19 @@ class OmniLogic:
                 site_telem["Unit-of-Measurement"] = config_item["System"]["Units"]
                 site_telem["Alarms"] = site_alarms
 
-                if type(config_item["Backyard"]["Sensor"]) == dict:
-                  site_telem["Unit-of-Temperature"] = config_item["Backyard"]["Sensor"][
-                      "Units"
-                  ]
-                else:
-                  for sensor in config_item["Backyard"]["Sensor"]:
-                    if sensor["Name"] == "AirSensor":
-                      site_telem["Unit-of-Temperature"] = sensor["Units"]
+                if "Sensor" in config_item["Backyard"]:
+                    if type(config_item["Backyard"]["Sensor"]) == dict:
+                      site_telem["Unit-of-Temperature"] = config_item["Backyard"]["Sensor"][
+                          "Units"
+                      ]
+                    else:
+                      for sensor in config_item["Backyard"]["Sensor"]:
+                        if sensor["Name"] == "AirSensor":
+                          site_telem["Unit-of-Temperature"] = sensor["Units"]
+                else: 
+                    site_telem["Unit-of-Temperature"] = config_item["Backyard"]["Body-of-water"]["Sensor"][
+                          "Units"
+                      ]
 
                 telem_list.append(site_telem)
 
