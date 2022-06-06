@@ -8,7 +8,6 @@ from enum import Enum
 import asyncio
 import logging
 
-# import config
 import aiohttp
 
 HAYWARD_API_URL = "https://www.haywardomnilogic.com/HAAPI/HomeAutomation/API.ashx"
@@ -1024,15 +1023,27 @@ class OmniLogic:
                 site_telem["Unit-of-Measurement"] = config_item["System"]["Units"]
                 site_telem["Alarms"] = site_alarms
 
-                if type(config_item["Backyard"]["Sensor"]) == dict:
-                  site_telem["Unit-of-Temperature"] = config_item["Backyard"]["Sensor"][
-                      "Units"
-                  ]
+                if "Sensor" in config_item["Backyard"]:
+                    sensors = config_item["Backyard"]["Sensor"]
                 else:
-                  for sensor in config_item["Backyard"]["Sensor"]:
-                    if sensor["Name"] == "AirSensor":
-                      site_telem["Unit-of-Temperature"] = sensor["Units"]
+                  sensors = config_item["Backyard"]["Body-of-water"]["Sensor"]
 
+                hasAirSensor = False
+
+                if type(sensors) == dict:
+                    site_telem["Unit-of-Temperature"] = sensors["Units"]
+
+                    if sensors["Name"] == "AirSensor":
+                        hasAirSensor = True
+                else:
+                    for sensor in sensors:
+                        if sensor["Name"] == "AirSensor":
+                            site_telem["Unit-of-Temperature"] = sensor["Units"]
+                            hasAirSensor = True
+
+                if hasAirSensor == False:
+                    del site_telem["airTemp"]
+                    
                 telem_list.append(site_telem)
 
         else:
