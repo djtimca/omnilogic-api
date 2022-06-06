@@ -134,3 +134,6 @@ dmypy.json
 # VSCode config
 .vscode/
 
+# Testing Files
+test.py
+test_data/
