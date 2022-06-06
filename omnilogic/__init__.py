@@ -716,7 +716,11 @@ class OmniLogic:
         return alarmslist
 
     def telemetry_to_json(self, telemetry, config_data, site_alarms):
-        telemetryXML = ElementTree.fromstring(telemetry)
+        try:
+            telemetryXML = ElementTree.fromstring(telemetry)
+        except:
+            raise OmniLogicException("Error loading Hayward data.")
+
         backyard = {}
 
         BOW = {}
@@ -1045,9 +1049,11 @@ class OmniLogic:
     # def get_alarm_list(self):
 
     def convert_to_json(self, xmlString):
-        my_dict = xmltodict.parse(xmlString)
-        json_data = json.dumps(my_dict)
-        # print(json_data)
+        try:
+            my_dict = xmltodict.parse(xmlString)
+            json_data = json.dumps(my_dict)
+        except:
+            raise OmniLogicException("Error converting Hayward data to JSON.")
 
         return json.loads(json_data)["Response"]["MSPConfig"]
 
