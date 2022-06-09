@@ -1,3 +1,2 @@
-aiohttp
-config
 xmltodict
+aiohttp

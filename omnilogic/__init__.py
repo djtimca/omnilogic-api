@@ -691,7 +691,11 @@ class OmniLogic:
         return success
 
     def alarms_to_json(self, alarms):
-        alarmsXML = ElementTree.fromstring(alarms)
+        try:
+            alarmsXML = ElementTree.fromstring(alarms)
+        except:
+            raise OmniLogicException("Error loading Hayward data.")
+            
         alarmslist = []
 
         for child in alarmsXML:
