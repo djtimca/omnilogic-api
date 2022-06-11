@@ -765,6 +765,7 @@ class OmniLogic:
                     BOW_list = []
                     bow_lights = []
                     bow_relays = []
+                    bow_pumps = []
                     bow_heaters = []
                     relays = []
                     BOWname = ""
@@ -789,6 +790,7 @@ class OmniLogic:
                     BOW = {}
                     bow_lights = []
                     bow_relays = []
+                    bow_pumps = []
                     bow_heaters = []
 
                     BOWname = "BOW" + str(child.attrib["systemId"])

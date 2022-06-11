@@ -1,3 +1,4 @@
+LICENCE.txt
 MANIFEST.in
 README.md
 setup.cfg
