@@ -291,6 +291,8 @@ class OmniLogic:
                             for light in BOW["ColorLogic-Light"]:
                                 if "V2-Active" not in light:
                                     light["V2-Active"] = "no"
+                                else:
+                                    light["V2-Active"] = "yes"
                                 bow_lights.append(light)
                         except:
                             if isinstance(
@@ -304,6 +306,8 @@ class OmniLogic:
                                 ]:
                                     if "V2-Active" not in light:
                                         light["V2-Active"] = "no"
+                                    else:
+                                        light["V2-Active"] = "yes"
                                     bow_lights.append(light)
                             else:
                                 light = configitem["Backyard"]["Body-of-water"][
@@ -311,6 +315,8 @@ class OmniLogic:
                                 ]
                                 if "V2-Active" not in light:
                                     light["V2-Active"] = "no"
+                                else:
+                                    light["V2-Active"] = "yes"
                                 bow_lights.append(light)
 
                     BOW = json.loads(BOW)
@@ -360,11 +366,15 @@ class OmniLogic:
                                         this_light = BOW["ColorLogic-Light"]
                                         if "V2-Active" not in this_light:
                                             this_light["V2-Active"] = "no"
+                                        else:
+                                            this_light["V2-Active"] = "yes"
                                         bow_lights.append(this_light)
                                         break
                                     else:
                                         if "V2-Active" not in light:
                                             light["V2-Active"] = "no"
+                                        else:
+                                            light["V2-Active"] = "yes"
                                         bow_lights.append(light)
                             except:
                                 bow_lights.append(BOW["ColorLogic-Light"])
@@ -1037,14 +1047,14 @@ class OmniLogic:
                 hasAirSensor = False
 
                 if type(sensors) == dict:
-                    site_telem["Unit-of-Temperature"] = sensors["Units"]
+                    site_telem["Unit-of-Temperature"] = sensors.get("Units","UNITS_FAHRENHEIT")
 
                     if sensors["Name"] == "AirSensor":
                         hasAirSensor = True
                 else:
                     for sensor in sensors:
                         if sensor["Name"] == "AirSensor":
-                            site_telem["Unit-of-Temperature"] = sensor["Units"]
+                            site_telem["Unit-of-Temperature"] = sensor.get("Units","UNITS_FAHRENHEIT")
                             hasAirSensor = True
 
                 if hasAirSensor == False:

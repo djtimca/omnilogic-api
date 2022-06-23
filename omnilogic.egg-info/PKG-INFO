@@ -1,12 +1,12 @@
 Metadata-Version: 2.1
 Name: omnilogic
-Version: 0.4.7
+Version: 0.4.8
 Summary: Integration for the Hayward OmniLogic pool control system
 Home-page: https://github.com/djtimca/omnilogic-api
 Author: Tim Empringham
 Author-email: tim.empringham@live.ca
 License: apache-2.0
-Download-URL: https://github.com/djtimca/omnilogic-api/archive/v_047.tar.gz
+Download-URL: https://github.com/djtimca/omnilogic-api/archive/v_048.tar.gz
 Keywords: OmniLogic,Hayward,Pool,Spa
 Platform: UNKNOWN
 Classifier: Development Status :: 3 - Alpha
