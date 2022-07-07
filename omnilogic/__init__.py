@@ -1042,11 +1042,14 @@ class OmniLogic:
                 if "Sensor" in config_item["Backyard"]:
                     sensors = config_item["Backyard"]["Sensor"]
                 else:
-                  sensors = config_item["Backyard"]["Body-of-water"]["Sensor"]
+                    if "Sensor" in config_item["Backyard"]["Body-of-water"]:
+                        sensors = config_item["Backyard"]["Body-of-water"]["Sensor"]
+                    else:
+                        sensors = {}
 
                 hasAirSensor = False
 
-                if type(sensors) == dict:
+                if type(sensors) == dict and sensors != {}:
                     site_telem["Unit-of-Temperature"] = sensors.get("Units","UNITS_FAHRENHEIT")
 
                     if sensors["Name"] == "AirSensor":
