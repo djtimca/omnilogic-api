@@ -1,14 +1,13 @@
 Metadata-Version: 2.1
 Name: omnilogic
-Version: 0.4.8
+Version: 0.5.0
 Summary: Integration for the Hayward OmniLogic pool control system
 Home-page: https://github.com/djtimca/omnilogic-api
+Download-URL: https://github.com/djtimca/omnilogic-api/archive/v_050.tar.gz
 Author: Tim Empringham
 Author-email: tim.empringham@live.ca
 License: apache-2.0
-Download-URL: https://github.com/djtimca/omnilogic-api/archive/v_048.tar.gz
 Keywords: OmniLogic,Hayward,Pool,Spa
-Platform: UNKNOWN
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Build Tools
@@ -138,6 +137,4 @@ Note that show 17-26 may not be supported by all ColorLogic Light Systems.
 ### set_lightshowv2(APIClient, MspSystemID, PoolID, LightID, ShowID, Speed, Brightness)
 
 Turns on and sets the desired lightshow for V2 light systems. Pass the MspSystemID, PoolID and LightID as int. Use the table from above for the desired show as int. Send brightness and speed as Int.
-
-
 
