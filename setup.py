@@ -14,7 +14,7 @@ setup(
   author = 'Tim Empringham',
   author_email = 'tim.empringham@live.ca',
   url = 'https://github.com/djtimca/omnilogic-api',
-  download_url = 'https://github.com/djtimca/omnilogic-api/archive/v_050.tar.gz',
+  download_url = 'https://github.com/djtimca/omnilogic-api/raw/master/dist/omnilogic-0.5.0.tar.gz',
   keywords = ['OmniLogic', 'Hayward', 'Pool', 'Spa'],
   install_requires=[
           'xmltodict',
