@@ -140,9 +140,13 @@ class OmniLogic:
         }
         
         payload = {
-            "username": self.username,
+            "email": self.username,
             "password": self.password
         }
+        
+        _LOGGER.debug(f"Authenticating with URL: {HAYWARD_AUTH_URL}")
+        _LOGGER.debug(f"Using headers: {headers}")
+        _LOGGER.debug(f"Using payload structure: {list(payload.keys())}")
         
         try:
             async with self._session.post(
@@ -150,10 +154,12 @@ class OmniLogic:
             ) as resp:
                 if resp.status != 200:
                     error_text = await resp.text()
-                    _LOGGER.error(f"Authentication failed: {error_text}")
-                    raise LoginException(f"Failed login: {resp.status}")
+                    _LOGGER.error(f"Authentication failed with status {resp.status}: {error_text}")
+                    _LOGGER.error(f"Response headers: {resp.headers}")
+                    raise LoginException(f"Failed login: {resp.status}. Details: {error_text}")
                 
                 response = await resp.json()
+                _LOGGER.debug(f"Authentication successful. Response keys: {list(response.keys())}")
                 
                 # Set token expiry to 24 hours from now (refresh daily)
                 self.token_expiry = datetime.now() + timedelta(hours=24)
