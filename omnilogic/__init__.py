@@ -1071,7 +1071,12 @@ class OmniLogic:
     async def get_telemetry_data(self):
         if self.token is None:
             _LOGGER.debug("Token is None, attempting to connect")
-            await self.connect()
+            result = await self.connect()
+            if not result:
+                _LOGGER.error("Failed to connect and obtain token")
+                raise OmniLogicException("No authentication token available")
+            _LOGGER.debug(f"Connection successful, token obtained: {self.token is not None}")
+            
         if len(self.systems) == 0:
             _LOGGER.debug("No systems found, retrieving site list")
             await self.get_site_list()

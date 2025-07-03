@@ -6,7 +6,7 @@ with open("README.md","r") as fh:
 setup(
   name = 'omnilogic',
   packages = ['omnilogic'],
-  version = '0.5.3',
+  version = '0.5.5',
   license='apache-2.0',
   description = 'Integration for the Hayward OmniLogic pool control system',
   long_description = long_description,
