@@ -7,10 +7,14 @@ from xml.etree.ElementTree import Element, SubElement, Comment, tostring
 from enum import Enum
 import asyncio
 import logging
+from datetime import datetime, timedelta
 
 import aiohttp
 
 HAYWARD_API_URL = "https://www.haywardomnilogic.com/HAAPI/HomeAutomation/API.ashx"
+HAYWARD_AUTH_URL = "https://services-gamma.haywardcloud.net/auth-service/v2/login"
+HAYWARD_REFRESH_URL = "https://services-gamma.haywardcloud.net/auth-service/v2/refresh"
+HAYWARD_APP_ID = "tzwqg83jvkyurxblidnepmachs"
 
 _LOGGER = logging.getLogger("omnilogic")
 
@@ -22,6 +26,8 @@ class OmniLogic:
         self.systemname = None
         self.userid = None
         self.token = None
+        self.refresh_token = None
+        self.token_expiry = None
         self.verbose = True
         self.logged_in = False
         self.retry = 5
@@ -77,6 +83,10 @@ class OmniLogic:
         """
         Generic method to call API.
         """
+        # Check if authentication is needed
+        if self.token and self.token_expiry and datetime.now() >= self.token_expiry:
+            await self.authenticate()
+            
         payload = self.buildRequest(methodName, params)
 
         headers = {
@@ -123,36 +133,104 @@ class OmniLogic:
         return response
 
     async def _get_token(self):
-
-        params = {"UserName": self.username, "Password": self.password}
-
-        response = await self.call_api("Login", params)
-
-        if "There is no information" in response:
-            raise OmniLogicException("Failure getting token.")
-
-        else:
-            root = ElementTree.fromstring(response)
-            userid = root[1][2].text
-            token = root[1][3].text
-            # await self.close()
-
-            return {"token": token, "userid": userid}
+        """ Get a new authentication token using the new auth endpoint """
+        headers = {
+            "Content-Type": "application/json",
+            "X-HAYWARD-APP-ID": HAYWARD_APP_ID
+        }
+        
+        payload = {
+            "username": self.username,
+            "password": self.password
+        }
+        
+        try:
+            async with self._session.post(
+                HAYWARD_AUTH_URL, json=payload, headers=headers
+            ) as resp:
+                if resp.status != 200:
+                    error_text = await resp.text()
+                    _LOGGER.error(f"Authentication failed: {error_text}")
+                    raise LoginException(f"Failed login: {resp.status}")
+                
+                response = await resp.json()
+                
+                # Set token expiry to 24 hours from now (refresh daily)
+                self.token_expiry = datetime.now() + timedelta(hours=24)
+                
+                return {
+                    "token": response.get("access_token"),
+                    "refresh_token": response.get("refresh_token"),
+                    "userid": response.get("user_id")
+                }
+                
+        except aiohttp.ClientConnectorError as e:
+            raise LoginException(f"Connection error: {e}")
 
     async def _get_new_token(self):
         return await self._get_token()
+        
+    async def _refresh_token(self):
+        """ Refresh the authentication token """
+        if not self.refresh_token:
+            # If no refresh token is available, get a new token instead
+            return await self._get_token()
+            
+        headers = {
+            "Content-Type": "application/json",
+            "X-HAYWARD-APP-ID": HAYWARD_APP_ID
+        }
+        
+        payload = {
+            "refresh_token": self.refresh_token
+        }
+        
+        try:
+            async with self._session.post(
+                HAYWARD_REFRESH_URL, json=payload, headers=headers
+            ) as resp:
+                if resp.status != 200:
+                    _LOGGER.warning("Token refresh failed, getting new token")
+                    # If refresh fails, fall back to getting a new token
+                    return await self._get_token()
+                
+                response = await resp.json()
+                
+                # Set token expiry to 24 hours from now
+                self.token_expiry = datetime.now() + timedelta(hours=24)
+                
+                return {
+                    "token": response.get("access_token"),
+                    "refresh_token": response.get("refresh_token"),
+                    "userid": self.userid  # Keep the existing user ID
+                }
+                
+        except aiohttp.ClientConnectorError as e:
+            _LOGGER.error(f"Token refresh connection error: {e}")
+            # If refresh fails with connection error, fall back to getting a new token
+            return await self._get_token()
 
     async def authenticate(self):
-
-        if not self.token:
+        """ Authenticate or refresh token if needed """
+        # Check if token needs refresh
+        if self.token and self.token_expiry and datetime.now() < self.token_expiry:
+            # Token is still valid, no action needed
+            return
+            
+        # Get new token or refresh existing token
+        if not self.token or not self.refresh_token:
             response = await self._get_new_token()
+        else:
+            response = await self._refresh_token()
 
-            if response != '{"Error":"Failed"}':
-                self.token = response["token"]
-                self.userid = response["userid"]
-            else:
-                self.token = ""
-                self.userid = ""
+        if response and "token" in response:
+            self.token = response["token"]
+            self.refresh_token = response.get("refresh_token")
+            self.userid = response["userid"]
+        else:
+            self.token = None
+            self.refresh_token = None
+            self.userid = None
 
     async def connect(self):
         """
