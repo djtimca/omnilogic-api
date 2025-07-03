@@ -154,8 +154,12 @@ class OmniLogic:
             ) as resp:
                 if resp.status != 200:
                     error_text = await resp.text()
-                    _LOGGER.error(f"Authentication failed with status {resp.status}: {error_text}")
+                    _LOGGER.error(f"Authentication failed with status {resp.status}")
+                    _LOGGER.error(f"Error details: {error_text}")
                     _LOGGER.error(f"Response headers: {resp.headers}")
+                    _LOGGER.error(f"Request URL: {HAYWARD_AUTH_URL}")
+                    _LOGGER.error(f"Request payload keys: {list(payload.keys())}")
+                    _LOGGER.error(f"Using username/email: {self.username[:3]}...{self.username[-3:] if len(self.username) > 6 else ''}")
                     raise LoginException(f"Failed login: {resp.status}. Details: {error_text}")
                 
                 response = await resp.json()
