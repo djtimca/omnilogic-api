@@ -7,3 +7,5 @@ MANIFEST
 omnilogic/omnilogic.py
 *egg-info/
 .vscode/
+documentation/*
+.venv/
