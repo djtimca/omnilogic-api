@@ -168,10 +168,13 @@ class OmniLogic:
                 # Set token expiry to 24 hours from now (refresh daily)
                 self.token_expiry = datetime.now() + timedelta(hours=24)
                 
+                # Debug the actual response structure
+                _LOGGER.debug(f"Token value in response: {response.get('token')}, userID: {response.get('userID')}")
+                
                 return {
-                    "token": response.get("access_token"),
-                    "refresh_token": response.get("refresh_token"),
-                    "userid": response.get("user_id")
+                    "token": response.get("token"),  # API returns 'token', not 'access_token'
+                    "refresh_token": response.get("refreshToken"),  # API returns 'refreshToken'
+                    "userid": response.get("userID")  # API returns 'userID'
                 }
                 
         except aiohttp.ClientConnectorError as e:
