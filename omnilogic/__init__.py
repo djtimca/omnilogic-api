@@ -1070,91 +1070,136 @@ class OmniLogic:
 
     async def get_telemetry_data(self):
         if self.token is None:
+            _LOGGER.debug("Token is None, attempting to connect")
             await self.connect()
         if len(self.systems) == 0:
+            _LOGGER.debug("No systems found, retrieving site list")
             await self.get_site_list()
 
         # assert self.token != "", "No login token"
         telem_list = []
 
         if self.token != "" and len(self.systems) != 0:
-            config_data = await self.get_msp_config_file()
-            
-            """
-            f = open("mspconfig_" + self.username + ".txt", "w")
-            f.write(str(config_data))
-            f.close()
-            """
-            
-            for system in self.systems:
-                # Get the right instance of the ID for this system
-                config_item = {}
-
-                for sys_data in config_data:
-
-                    if sys_data["MspSystemID"] == system["MspSystemID"]:
-                        config_item = sys_data
-
-                params = {"Token": self.token, "MspSystemID": system["MspSystemID"]}
-
-                telem = await self.call_api("GetTelemetryData", params)
+            try:
+                _LOGGER.debug(f"Getting MSP config file for {len(self.systems)} systems")
+                config_data = await self.get_msp_config_file()
+                _LOGGER.debug(f"Successfully retrieved MSP config data")
                 
-                params = {
-                    "Token": self.token,
-                    "MspSystemID": system["MspSystemID"],
-                    "Version": "0",
-                }
-
-                this_alarm = await self.call_api("GetAlarmList", params)
-
-                site_alarms = self.alarms_to_json(this_alarm)
-
-                if site_alarms[0].get("BowID") == "False":
-                    site_alarms = []
+                """
+                f = open("mspconfig_" + self.username + ".txt", "w")
+                f.write(str(config_data))
+                f.close()
+                """
                 
-                site_telem = self.telemetry_to_json(telem, config_item, self.alarms_to_json(this_alarm))
+                for system in self.systems:
+                    try:
+                        # Get the right instance of the ID for this system
+                        config_item = {}
+                        _LOGGER.debug(f"Processing system: {system['MspSystemID']} - {system.get('BackyardName', 'Unknown')}")
 
-                site_telem["BackyardName"] = config_item["BackyardName"]
-                site_telem["Msp-Vsp-Speed-Format"] = config_item["System"][
-                    "Msp-Vsp-Speed-Format"
-                ]
-                site_telem["Msp-Time-Format"] = config_item["System"]["Msp-Time-Format"]
-                site_telem["Units"] = config_item["System"]["Units"]
-                site_telem["Msp-Chlor-Display"] = config_item["System"][
-                    "Msp-Chlor-Display"
-                ]
-                site_telem["Msp-Language"] = config_item["System"]["Msp-Language"]
-                site_telem["Unit-of-Measurement"] = config_item["System"]["Units"]
-                site_telem["Alarms"] = site_alarms
+                        for sys_data in config_data:
+                            if sys_data["MspSystemID"] == system["MspSystemID"]:
+                                config_item = sys_data
 
-                if "Sensor" in config_item["Backyard"]:
-                    sensors = config_item["Backyard"]["Sensor"]
-                else:
-                    if "Sensor" in config_item["Backyard"]["Body-of-water"]:
-                        sensors = config_item["Backyard"]["Body-of-water"]["Sensor"]
-                    else:
-                        sensors = {}
+                        if not config_item:
+                            _LOGGER.warning(f"Could not find config data for system {system['MspSystemID']}")
+                            continue
 
-                hasAirSensor = False
+                        params = {"Token": self.token, "MspSystemID": system["MspSystemID"]}
+                        _LOGGER.debug(f"Getting telemetry data for system {system['MspSystemID']}")
 
-                if type(sensors) == dict and sensors != {}:
-                    site_telem["Unit-of-Temperature"] = sensors.get("Units","UNITS_FAHRENHEIT")
+                        telem = await self.call_api("GetTelemetryData", params)
+                        _LOGGER.debug(f"Successfully retrieved telemetry data for system {system['MspSystemID']}")
+                        
+                        params = {
+                            "Token": self.token,
+                            "MspSystemID": system["MspSystemID"],
+                            "Version": "0",
+                        }
+                        _LOGGER.debug(f"Getting alarm list for system {system['MspSystemID']}")
 
-                    if sensors["Name"] == "AirSensor":
-                        hasAirSensor = True
-                else:
-                    for sensor in sensors:
-                        if sensor["Name"] == "AirSensor":
-                            site_telem["Unit-of-Temperature"] = sensor.get("Units","UNITS_FAHRENHEIT")
-                            hasAirSensor = True
+                        this_alarm = await self.call_api("GetAlarmList", params)
+                        _LOGGER.debug(f"Successfully retrieved alarm list for system {system['MspSystemID']}")
 
-                if hasAirSensor == False:
-                    del site_telem["airTemp"]
-                    
-                telem_list.append(site_telem)
+                        site_alarms = self.alarms_to_json(this_alarm)
+                        _LOGGER.debug(f"Processed alarms: {len(site_alarms)} found")
+
+                        if site_alarms[0].get("BowID") == "False":
+                            site_alarms = []
+                        
+                        _LOGGER.debug(f"Converting telemetry to JSON for system {system['MspSystemID']}")
+                        site_telem = self.telemetry_to_json(telem, config_item, self.alarms_to_json(this_alarm))
+                        _LOGGER.debug(f"Successfully converted telemetry to JSON for system {system['MspSystemID']}")
+
+                        site_telem["BackyardName"] = config_item["BackyardName"]
+                        
+                        try:
+                            site_telem["Msp-Vsp-Speed-Format"] = config_item["System"]["Msp-Vsp-Speed-Format"]
+                            site_telem["Msp-Time-Format"] = config_item["System"]["Msp-Time-Format"]
+                            site_telem["Units"] = config_item["System"]["Units"]
+                            site_telem["Msp-Chlor-Display"] = config_item["System"]["Msp-Chlor-Display"]
+                            site_telem["Msp-Language"] = config_item["System"]["Msp-Language"]
+                            site_telem["Unit-of-Measurement"] = config_item["System"]["Units"]
+                            site_telem["Alarms"] = site_alarms
+                        except KeyError as e:
+                            _LOGGER.error(f"Missing key in system config: {e}")
+                            _LOGGER.debug(f"Available system keys: {list(config_item.get('System', {}).keys())}")
+
+                        try:
+                            if "Sensor" in config_item["Backyard"]:
+                                sensors = config_item["Backyard"]["Sensor"]
+                                _LOGGER.debug("Found sensors in Backyard")
+                            else:
+                                if "Sensor" in config_item["Backyard"].get("Body-of-water", {}):
+                                    sensors = config_item["Backyard"]["Body-of-water"]["Sensor"]
+                                    _LOGGER.debug("Found sensors in Body-of-water")
+                                else:
+                                    sensors = {}
+                                    _LOGGER.debug("No sensors found")
+
+                            hasAirSensor = False
+
+                            if type(sensors) == dict and sensors != {}:
+                                site_telem["Unit-of-Temperature"] = sensors.get("Units","UNITS_FAHRENHEIT")
+
+                                if sensors["Name"] == "AirSensor":
+                                    hasAirSensor = True
+                                    _LOGGER.debug("Found AirSensor")
+                            else:
+                                for sensor in sensors:
+                                    if sensor["Name"] == "AirSensor":
+                                        site_telem["Unit-of-Temperature"] = sensor.get("Units","UNITS_FAHRENHEIT")
+                                        hasAirSensor = True
+                                        _LOGGER.debug("Found AirSensor in sensor list")
+
+                            if hasAirSensor == False:
+                                if "airTemp" in site_telem:
+                                    del site_telem["airTemp"]
+                                    _LOGGER.debug("Removed airTemp as no AirSensor was found")
+                        except KeyError as e:
+                            _LOGGER.error(f"Error processing sensors: {e}")
+                            _LOGGER.debug(f"Backyard keys: {list(config_item.get('Backyard', {}).keys())}")
+                        
+                        _LOGGER.debug(f"Adding telemetry for system {system['MspSystemID']} to results")
+                        telem_list.append(site_telem)
+                    except Exception as e:
+                        _LOGGER.error(f"Error processing system {system['MspSystemID']}: {str(e)}")
+                        _LOGGER.debug("Exception details", exc_info=True)
+            except Exception as e:
+                _LOGGER.error(f"Error getting telemetry data: {str(e)}")
+                _LOGGER.debug("Exception details", exc_info=True)
+                raise OmniLogicException(f"Failure getting telemetry: {str(e)}")
 
         else:
-            raise OmniLogicException("Failure getting telemetry.")
+            if self.token is None:
+                _LOGGER.error("Failed to get telemetry: No authentication token available")
+                raise OmniLogicException("Failure getting telemetry: No authentication token")
+            elif len(self.systems) == 0:
+                _LOGGER.error("Failed to get telemetry: No systems found")
+                raise OmniLogicException("Failure getting telemetry: No systems found")
+            else:
+                _LOGGER.error("Failed to get telemetry: Unknown reason")
+                raise OmniLogicException("Failure getting telemetry.")
 
         """
         f = open("telemetry_" + self.username + ".txt", "w")
