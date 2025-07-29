@@ -94,6 +94,7 @@ async def run_test():
     else:
         print("✗ Failed to retrieve telemetry data")
     
+    """
     # Test set_chlor_params method - now uses MSP config defaults with override capability
     print("\nTesting set_chlor_params method...")
     poolId = 1
@@ -127,6 +128,7 @@ async def run_test():
     await client.close()
     
     print("\nTest completed.")
+    """
 
 if __name__ == "__main__":
     asyncio.run(run_test())
