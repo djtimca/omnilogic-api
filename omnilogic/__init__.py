@@ -57,26 +57,73 @@ class OmniLogic:
         reqName.text = requestName
         paramTag = SubElement(req, "Parameters")
 
-        for k, v in params.items():
-            datatype = ""
+        # Special handling for SetCHLORParams - manually construct XML to match manufacturer format
+        if requestName == "SetCHLORParams":
+            # Build XML manually to ensure proper opening/closing tags for empty values
+            xml_parts = ['<?xml version="1.0" encoding="utf-8"?>', '<Request>', '<Name>SetCHLORParams</Name>', '<Parameters>']
+            
+            # Define parameter order and types - API actually requires MspSystemID despite manufacturer feedback
+            # Note: Hayward has a typo in their API - they expect "ORPTimout" (missing 'e')
+            param_order = [
+                ("MspSystemID", "int"),
+                ("PoolID", "int"), 
+                ("ChlorID", "int"),
+                ("CfgState", "byte"),
+                ("OpMode", "byte"),
+                ("BOWType", "byte"),
+                ("CellType", "byte"),
+                ("TimedPercent", "byte"),
+                ("SCTimeout", "byte"),
+                ("ORPTimout", "byte")  # Hayward's typo - missing 'e'
+            ]
+            
+            for param_name, data_type in param_order:
+                if param_name in params and param_name != "Token":
+                    value = params[param_name]
+                    if value is not None and str(value) != "":
+                        xml_parts.append(f'            <Parameter name="{param_name}" dataType="{data_type}">{value}</Parameter>')
+                    else:
+                        # Handle None values with consistent defaults for missing MSP config values
+                        if param_name in ["SCTimeout", "ORPTimout"]:  # Note: ORPTimout is Hayward's typo
+                            default_value = 4  # 4 hours default for both timeout parameters
+                            xml_parts.append(f'            <Parameter name="{param_name}" dataType="{data_type}">{default_value}</Parameter>')
+                            _LOGGER.info(f"Using default for {param_name}: {default_value} hours (MSP config value was None)")
+                        else:
+                            # Skip other parameters with empty/None values
+                            _LOGGER.warning(f"Skipping parameter {param_name} with empty value: {value}")
+            
+            xml_parts.extend(['</Parameters>', '</Request>'])
+            requestXML = '\n'.join(xml_parts)
+            
+            # Debug logging for SetCHLORParams
+            _LOGGER.info(f"Generated XML for {requestName}:")
+            _LOGGER.info(requestXML)
+            return requestXML
+        else:
+            # Standard parameter handling for other API calls
+            for k, v in params.items():
+                datatype = ""
 
-            if type(v) == int:
-                datatype = "int"
-            elif type(v) == str:
-                datatype = "string"
-            elif type(v) == bool:
-                datatype = "bool"
-            else:
-                _LOGGER.info("Couldn't determine datatype, exiting.")
-                # print("Couldn't determine datatype, exiting.")
-                return None
+                if type(v) == int:
+                    datatype = "int"
+                elif type(v) == str:
+                    datatype = "string"
+                elif type(v) == bool:
+                    datatype = "bool"
+                else:
+                    _LOGGER.info(f"Couldn't determine datatype for parameter '{k}' with value '{v}' (type: {type(v)}), exiting.")
+                    # print("Couldn't determine datatype, exiting.")
+                    return None
 
-            if str(k) != "Token":
-                param = SubElement(paramTag, "Parameter", name=k, dataType=datatype)
-                param.text = str(v)
+                if str(k) != "Token":
+                    param = SubElement(paramTag, "Parameter", name=k, dataType=datatype)
+                    param.text = str(v)
 
         requestXML = ElementTree.tostring(req).decode()
-        # print("\n" + requestXML + "\n")
+        # Debug logging for SetCHLORParams
+        if requestName == "SetCHLORParams":
+            _LOGGER.info(f"Generated XML for {requestName}:")
+            _LOGGER.info(requestXML)
         return requestXML
 
     async def call_api(self, methodName, params):
@@ -98,6 +145,13 @@ class OmniLogic:
             headers["Token"] = self.token
             if "MspSystemID" in params:
                 headers["SiteID"] = str(params["MspSystemID"])
+            elif methodName == "SetCHLORParams":
+                # Special case: SetCHLORParams needs MspSystemID in header but not in parameters
+                if self.systems and len(self.systems) > 0:
+                    headers["SiteID"] = str(self.systems[0]["MspSystemID"])
+                    _LOGGER.debug(f"SetCHLORParams: Added SiteID {self.systems[0]['MspSystemID']} to header")
+                else:
+                    _LOGGER.error("SetCHLORParams: No systems available for SiteID header")
 
         async with self._session.post(
             HAYWARD_API_URL, data=payload, headers=headers
@@ -314,6 +368,10 @@ class OmniLogic:
                 }
 
                 mspconfig = await self.call_api("GetMspConfigFile", params)
+            
+            # Store raw MSP config XML for use by set_chlor_params method
+            if not hasattr(self, 'msp_config') or not self.msp_config:
+                self.msp_config = mspconfig
 
                 configitem = self.convert_to_json(mspconfig)
                 configitem["MspSystemID"] = system["MspSystemID"]
@@ -1228,24 +1286,227 @@ class OmniLogic:
 
         return json.loads(json_data)["Response"]["MSPConfig"]
 
-    def set_equipment(self, poolId, equipmentId, isOn):
-        params = [
-            {"Token": self.token},
-            {"MspSystemID": self.systemid},
-            {"PoolID": poolId},
-            {"EquipmentID": equipmentId},
-            {"IsOn": isOn},
-            {"IsCountDownTimer": False},
-            {"StartTimeHours": 0},
-            {"StartTimeMinutes": 0},
-            {"EndTimeHours": 0},
-            {"EndTimeMinutes": 0},
-            {"DaysActive": 0},
-            {"Recurring": False},
-        ]
+    async def set_equipment(self, poolId, equipmentId, isOn):
+        if self.token is None:
+            await self.connect()
+        if len(self.systems) == 0:
+            await self.get_site_list()
 
-        self.call_api("SetUIEquipmentCmd", params)
+        success = False
 
+        if self.token is not None and len(self.systems) > 0:
+            # Use the first system's ID (like other methods do)
+            system_id = self.systems[0]["MspSystemID"]
+            
+            params = {
+                "Token": self.token,
+                "MspSystemID": system_id,
+                "Version": "0",
+                "PoolID": poolId,
+                "EquipmentID": equipmentId,
+                "IsOn": isOn,
+                "IsCountDownTimer": False,
+                "StartTimeHours": 0,
+                "StartTimeMinutes": 0,
+                "EndTimeHours": 0,
+                "EndTimeMinutes": 0,
+                "DaysActive": 0,
+                "Recurring": False,
+            }
+
+            response = await self.call_api("SetUIEquipmentCmd", params)
+            
+            # Handle potential XML parsing errors
+            try:
+                responseXML = ElementTree.fromstring(response)
+                if (
+                    int(responseXML.find("./Parameters/Parameter[@name='Status']").text)
+                    == 0
+                ):
+                    success = True
+            except ElementTree.ParseError:
+                # If response is not valid XML, it might be an error message
+                # In this case, we'll consider it a failure
+                success = False
+
+        return success
+
+    async def set_chlor_params(self, poolId, chlorId, cfgState=None, opMode=None, bowType=None, 
+                              timedPercent=None, cellType=None, scTimeout=None, orpTimeout=None):
+        """
+        Set chlorinator parameters using the SetCHLORParams API call.
+        Uses current chlorinator configuration from MSP config as defaults, with ability to override.
+        
+        Args:
+            poolId (int): Pool ID
+            chlorId (int): Chlorinator ID  
+            cfgState (int, optional): Configuration state (2=Disable/Off, 3=Enable/On)
+            opMode (int, optional): Operating mode (0=Not Configured, 1=Timed, 2=ORP Autosense)
+            bowType (int, optional): Body of Water Type (0=Pool, 1=SPA)
+            timedPercent (int, optional): Timed percentage [0-100]
+            cellType (int, optional): Cell type (1=T-3, 2=T-5, 3=T-9, 4=T-15)
+            scTimeout (int, optional): Superchlorinate timeout in hours [1-96]
+            orpTimeout (int, optional): ORP timeout in hours [1-96]
+            
+        Returns:
+            tuple: (success: bool, response: str) - success status and raw API response
+        """
+        if self.token is None:
+            await self.connect()
+
+        success = False
+        response = ""
+
+        if self.token is not None:
+            # Ensure we have system data
+            if not self.systems:
+                await self.get_site_list()
+            
+            # Ensure we have MSP config data for parsing defaults
+            if not hasattr(self, 'msp_config') or not self.msp_config:
+                await self.get_msp_config_file()
+            
+            # Parse current chlorinator configuration as defaults
+            current_config = self._parse_chlorinator_config(chlorId)
+            _LOGGER.info(f"Parsed chlorinator config for ID {chlorId}: {current_config}")
+            
+            # Use provided values or fall back to current config - NO hard-coded defaults
+            cfgState = cfgState if cfgState is not None else current_config["cfgState"]
+            opMode = opMode if opMode is not None else current_config["opMode"]
+            bowType = bowType if bowType is not None else current_config["bowType"]
+            timedPercent = timedPercent if timedPercent is not None else current_config["timedPercent"]
+            cellType = cellType if cellType is not None else current_config["cellType"]
+            scTimeout = scTimeout if scTimeout is not None else current_config["scTimeout"]
+            orpTimeout = orpTimeout if orpTimeout is not None else current_config["orpTimeout"]
+            
+            # Create parameters - include all parameters as per manufacturer sample
+            # Note: Hayward API has typo - expects "ORPTimout" (missing 'e')
+            params = {
+                "Token": self.token,
+                "MspSystemID": self.systems[0]["MspSystemID"],
+                "PoolID": poolId,
+                "ChlorID": chlorId,
+                "CfgState": cfgState,
+                "OpMode": opMode,
+                "BOWType": bowType,
+                "CellType": cellType,
+                "TimedPercent": timedPercent,
+                "SCTimeout": scTimeout,
+                "ORPTimout": orpTimeout  # Hayward's typo - missing 'e'
+            }
+
+            response = await self.call_api("SetCHLORParams", params)
+            
+            # Handle potential XML parsing errors
+            try:
+                responseXML = ElementTree.fromstring(response)
+                if (
+                    int(responseXML.find("./Parameters/Parameter[@name='Status']").text)
+                    == 0
+                ):
+                    success = True
+            except ElementTree.ParseError:
+                # If response is not valid XML, it might be an error message
+                # In this case, we'll consider it a failure
+                success = False
+
+        return success, response
+
+    def _parse_chlorinator_config(self, chlorId):
+        """Parse chlorinator configuration from MSP config file."""
+        if not self.msp_config:
+            raise ValueError("MSP config not available - cannot determine chlorinator configuration. Call get_msp_config_file() first.")
+        
+        try:
+            import xml.etree.ElementTree as ET
+            root = ET.fromstring(self.msp_config)
+            
+            # Find the chlorinator with the specified ID
+            chlorinator = None
+            for chlor in root.findall(".//Chlorinator"):
+                system_id_elem = chlor.find("System-Id")
+                if system_id_elem is not None and int(system_id_elem.text) == chlorId:
+                    chlorinator = chlor
+                    break
+            
+            if not chlorinator:
+                raise ValueError(f"Chlorinator with ID {chlorId} not found in MSP config - cannot determine configuration")
+            
+            # Parse configuration values
+            config = {}
+            
+            # Enabled -> CfgState (yes=3, no=2)
+            enabled = chlorinator.find("Enabled")
+            config["cfgState"] = 3 if enabled is not None and enabled.text == "yes" else 2
+            
+            # Mode -> OpMode
+            mode = chlorinator.find("Mode")
+            if mode is not None:
+                mode_text = mode.text
+                if "NOT_CONFIGURED" in mode_text:
+                    config["opMode"] = 0
+                elif "TIMED" in mode_text:
+                    config["opMode"] = 1
+                elif "ORP_AUTO" in mode_text:
+                    config["opMode"] = 2
+                else:
+                    config["opMode"] = 0
+            else:
+                config["opMode"] = 0
+            
+            # BOWType - find the pool/spa that contains this chlorinator
+            # Look for Body-Of-Water that contains this chlorinator
+            bow_type = 0  # Default to Pool
+            for bow in root.findall(".//Body-Of-Water"):
+                # Check if this chlorinator is in this body of water
+                chlor_in_bow = bow.find(f".//Chlorinator[System-Id='{chlorId}']")
+                if chlor_in_bow is not None:
+                    type_elem = bow.find("Type")
+                    if type_elem is not None:
+                        if "BOW_POOL" in type_elem.text:
+                            bow_type = 0
+                        else:  # BOW_SPA or anything else
+                            bow_type = 1
+                    break
+            config["bowType"] = bow_type
+            
+            # Cell-Type -> CellType
+            cell_type = chlorinator.find("Cell-Type")
+            if cell_type is not None:
+                cell_text = cell_type.text
+                if "T3" in cell_text:
+                    config["cellType"] = 1
+                elif "T5" in cell_text:
+                    config["cellType"] = 2
+                elif "T9" in cell_text:
+                    config["cellType"] = 3
+                elif "T15" in cell_text:
+                    config["cellType"] = 4
+                else:
+                    config["cellType"] = 4  # Default to T-15
+            else:
+                config["cellType"] = 4  # Default to T-15
+            
+            # Timed-Percent -> TimedPercent
+            timed_percent = chlorinator.find("Timed-Percent")
+            config["timedPercent"] = int(timed_percent.text) if timed_percent is not None else 50
+            
+            # SuperChlor-Timeout -> SCTimeout (already in hours)
+            sc_timeout = chlorinator.find("SuperChlor-Timeout")
+            config["scTimeout"] = int(sc_timeout.text) if sc_timeout is not None else 5
+            
+            # ORP-Timeout -> ORPTimeout (convert from seconds to hours)
+            orp_timeout = chlorinator.find("ORP-Timeout")
+            if orp_timeout is not None:
+                config["orpTimeout"] = int(int(orp_timeout.text) / 3600)  # Convert seconds to hours
+            else:
+                config["orpTimeout"] = None  # No default - use None if not found
+            
+            return config
+            
+        except Exception as e:
+            _LOGGER.error(f"Error parsing chlorinator config: {e}")
+            raise ValueError(f"Failed to parse chlorinator configuration from MSP config: {e}")
 
 class LoginException(Exception):
     pass

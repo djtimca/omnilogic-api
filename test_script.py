@@ -49,20 +49,25 @@ async def run_test():
         await client.close()
         return
     
-    # Test telemetry retrieval
-    print("\nRetrieving telemetry data...")
-    try:
-        telemetry = await client.get_telemetry_data()
-        print(f"✓ Telemetry data retrieved successfully!")
+    # Get telemetry data
+    print("\nTesting telemetry retrieval...")
+    telemetry = await client.get_telemetry_data()
+    if telemetry:
+        print("✓ Telemetry data retrieved successfully!")
         
-        # Save results to file
+        # Save telemetry to file with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = os.path.join(TEST_DATA_DIR, f"telemetry_{timestamp}.json")
-        
-        with open(filename, 'w') as f:
+        telemetry_file = os.path.join(TEST_DATA_DIR, f"telemetry_{timestamp}.json")
+        with open(telemetry_file, 'w') as f:
             json.dump(telemetry, f, indent=2)
+        print(f"\nResults saved to: {os.path.abspath(telemetry_file)}")
         
-        print(f"\nResults saved to: {filename}")
+        # Save fresh MSP config file with timestamp
+        if hasattr(client, 'msp_config') and client.msp_config:
+            msp_config_file = os.path.join(TEST_DATA_DIR, f"MspConfiguration_{timestamp}.xml")
+            with open(msp_config_file, 'w') as f:
+                f.write(client.msp_config)
+            print(f"MSP config saved to: {os.path.abspath(msp_config_file)}")
         
         # Display summary of telemetry data
         if telemetry and isinstance(telemetry, dict):
@@ -86,9 +91,37 @@ async def run_test():
                 if bows:
                     equipment = bows[0].get("equipment", [])
                     print(f"  Equipment in first BOW: {len(equipment)}")
-        
+    else:
+        print("✗ Failed to retrieve telemetry data")
+    
+    # Test set_chlor_params method - now uses MSP config defaults with override capability
+    print("\nTesting set_chlor_params method...")
+    poolId = 1
+    chlorId = 5  # Use chlorinator ID from MSP config (System-Id=6)
+    
+    print(f"  Calling set_chlor_params with MSP config defaults (only overriding cfgState to enable)")
+    print(f"  This will parse current config from MSP and use those values, overriding cfgState=3 (enable)")
+    
+    try:
+        # Test: Override specific parameters
+        print(f"\n  Testing with specific parameter overrides...")
+        success2, response2 = await client.set_chlor_params(
+            poolId=poolId, 
+            chlorId=chlorId,
+            cfgState=3,      # Enable
+            opMode=1,        # Timed mode
+            timedPercent=40  # 40% override
+        )
+        if success2:
+            print("✓ set_chlor_params call successful with parameter overrides!")
+        else:
+            print("✗ set_chlor_params call with overrides failed")
+            print(f"  Full response: {response2}")
+            
     except Exception as e:
-        print(f"✗ Telemetry retrieval failed: {e}")
+        print(f"✗ set_chlor_params test failed: {e}")
+        import traceback
+        traceback.print_exc()
     
     # Close the client session
     await client.close()
