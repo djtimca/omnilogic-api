@@ -369,9 +369,9 @@ class OmniLogic:
 
                 mspconfig = await self.call_api("GetMspConfigFile", params)
             
-            # Store raw MSP config XML for use by set_chlor_params method
-            if not hasattr(self, 'msp_config') or not self.msp_config:
-                self.msp_config = mspconfig
+                # Store raw MSP config XML for use by set_chlor_params method
+                if not hasattr(self, 'msp_config') or not self.msp_config:
+                    self.msp_config = mspconfig
 
                 configitem = self.convert_to_json(mspconfig)
                 configitem["MspSystemID"] = system["MspSystemID"]
