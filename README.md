@@ -1,6 +1,23 @@
 # Hayward OmniLogic Integration
 Integration library for Hayward Omnilogic pool controllers to allow easy integration through their API to your home automation system.
 
+**Latest Version: 0.6.1** - Now includes comprehensive chlorinator control with intelligent MSP config defaults!
+
+## Recent Updates
+
+### v0.6.1 (2025-07-29)
+- **Fixed**: Home Assistant compatibility issue in `get_msp_config_file`
+- **Fixed**: Config processing now runs correctly on every method call
+- **Improved**: Maintains backward compatibility while preserving new features
+
+### v0.6.0 (2025-07-29)
+- **NEW**: `set_chlor_params` method for comprehensive chlorinator control
+- **NEW**: Intelligent MSP config integration - uses your actual system settings as defaults
+- **NEW**: Selective parameter override capability
+- **Fixed**: Hayward API compatibility issues (including parameter naming quirks)
+- **Enhanced**: Robust error handling and logging for chlorinator operations
+- **Maintained**: Full backward compatibility with existing integrations
+
 # Usage
 
 ## Getting it
@@ -76,6 +93,77 @@ Sets the spillover speed for a pool that supports Spillover. Pass the MspSystemI
 ### set_superchlorination(APIClient, MspSystemID, PoolID, ChlorID, IsOn)
 
 Sets the SuperChlorination function on or off. Pass the MspSystemID, PoolID and the ChlorID (Equipment ID of the Chlorinator) as int. Pass IsOn as int with 1 to turn on SuperChlorination and 0 to turn off SuperChlorination.
+
+### set_chlor_params(APIClient, PoolID, ChlorID, **kwargs)
+
+**NEW in v0.6.0** - Comprehensive chlorinator parameter control with intelligent MSP config defaults.
+
+Sets chlorinator parameters using your system's MSP configuration as defaults. This method automatically extracts current settings from your pool's configuration and allows you to override specific parameters while keeping others unchanged.
+
+#### Parameters:
+- `PoolID` (int): Pool identifier
+- `ChlorID` (int): Chlorinator equipment ID
+- `cfgState` (int, optional): Configuration state
+  - `2` = Disable/Off
+  - `3` = Enable/On
+- `opMode` (int, optional): Operation mode
+  - `0` = Not Configured
+  - `1` = Timed
+  - `2` = ORP Autosense
+- `bowType` (int, optional): Body of water type
+  - `0` = Pool
+  - `1` = SPA
+- `timedPercent` (int, optional): Chlorine generation percentage (0-100)
+- `cellType` (int, optional): Cell type
+  - `1` = T-3
+  - `2` = T-5
+  - `3` = T-9
+  - `4` = T-15
+- `scTimeout` (int, optional): SuperChlor timeout in hours (1-96)
+- `orpTimeout` (int, optional): ORP timeout in hours (1-96)
+
+#### Usage Examples:
+
+```python
+# Enable chlorinator with MSP config defaults
+success = await api_client.set_chlor_params(
+    poolId=1, 
+    chlorId=5, 
+    cfgState=3  # Enable
+)
+
+# Set to timed mode with 50% generation
+success = await api_client.set_chlor_params(
+    poolId=1, 
+    chlorId=5,
+    cfgState=3,        # Enable
+    opMode=1,          # Timed mode
+    timedPercent=50    # 50% generation
+)
+
+# Override multiple parameters
+success = await api_client.set_chlor_params(
+    poolId=1,
+    chlorId=5,
+    cfgState=3,        # Enable
+    opMode=2,          # ORP Autosense
+    bowType=0,         # Pool
+    scTimeout=6        # 6 hour SuperChlor timeout
+)
+```
+
+#### Key Features:
+- **Intelligent Defaults**: Automatically uses your current system configuration as defaults
+- **Selective Override**: Change only the parameters you need, others remain unchanged
+- **MSP Config Integration**: Reads actual system settings from MSP configuration
+- **Error Handling**: Comprehensive validation and error reporting
+- **API Compatibility**: Handles Hayward API quirks and requirements automatically
+
+#### Notes:
+- If parameters are not specified, current MSP config values are used
+- Missing timeout values default to 4 hours if not found in MSP config
+- Method automatically handles the Hayward API's parameter naming requirements
+- Returns `True` on success, `False` on failure
 
 ### set_lightshow(APIClient, MspSystemID, PoolID, LightID, ShowID)
 
