@@ -193,12 +193,32 @@ class OmniLogic:
             # response = {"Error":"Failed login"}
             raise LoginException("Failed Login: Bad username or password")
 
-        if int(responseXML.find("./Parameters/Parameter[@name='Status']").text) != 0:
-            self.request_statusmessage = responseXML.find(
-                "./Parameters/Parameter[@name='StatusMessage']"
-            ).text
-            # raise ValueError(self.request_statusmessage)
-            response = self.request_statusmessage
+        status_param = responseXML.find("./Parameters/Parameter[@name='Status']")
+        if status_param is not None and status_param.text is not None:
+            try:
+                status_code = int(status_param.text)
+            except ValueError:
+                status_code = -1
+
+            msg_param = responseXML.find("./Parameters/Parameter[@name='StatusMessage']")
+            status_msg = msg_param.text if msg_param is not None and msg_param.text is not None else ""
+
+            # Check for authentication failure (Status 2 = "You haven't logged in.")
+            if (status_code == 2 or "logged in" in status_msg.lower()) and self.token and not is_retry:
+                _LOGGER.info(
+                    f"Session expired for {methodName} (Status {status_code}: {status_msg}). Refreshing token and retrying request..."
+                )
+                self.token = None
+                self.token_expiry = None
+                await self.authenticate()
+                if self.token:
+                    if "Token" in params:
+                        params["Token"] = self.token
+                    return await self.call_api(methodName, params, is_retry=True)
+
+            if status_code != 0:
+                self.request_statusmessage = status_msg
+                response = self.request_statusmessage
 
         return response
 
