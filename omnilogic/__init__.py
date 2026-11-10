@@ -161,7 +161,17 @@ class OmniLogic:
             except aiohttp.ClientConnectorError as e:
                 raise LoginException(e)
 
-        responseXML = ElementTree.fromstring(response)
+        try:
+            responseXML = ElementTree.fromstring(response)
+        except ElementTree.ParseError as err:
+            # Hayward returns empty/non-XML when the token is invalid or expired
+            if self.token:
+                _LOGGER.info(
+                    f"Empty or non-XML response received from API for {methodName} ({err}). Invalidating token for re-authentication."
+                )
+                self.token = None
+                self.token_expiry = None
+            raise OmniLogicException(f"Failed to parse API response for {methodName}: {err}") from err
 
         """ ### GetMspConfigFile/Telemetry do not return a successfull status, having to catch it a different way :thumbsdown: """
         if methodName == "GetMspConfigFile" and "MSPConfig" in response:
