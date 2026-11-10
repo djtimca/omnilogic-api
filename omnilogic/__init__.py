@@ -126,9 +126,9 @@ class OmniLogic:
             _LOGGER.info(requestXML)
         return requestXML
 
-    async def call_api(self, methodName, params):
+    async def call_api(self, methodName, params, is_retry=False):
         """
-        Generic method to call API.
+        Generic method to call API with automatic token refresh on authentication failure.
         """
         # Check if authentication is needed
         if self.token and self.token_expiry and datetime.now() >= self.token_expiry:
@@ -165,12 +165,18 @@ class OmniLogic:
             responseXML = ElementTree.fromstring(response)
         except ElementTree.ParseError as err:
             # Hayward returns empty/non-XML when the token is invalid or expired
-            if self.token:
+            if self.token and not is_retry:
                 _LOGGER.info(
-                    f"Empty or non-XML response received from API for {methodName} ({err}). Invalidating token for re-authentication."
+                    f"Empty or non-XML response for {methodName} ({err}). Refreshing token and retrying request..."
                 )
                 self.token = None
                 self.token_expiry = None
+                await self.authenticate()
+                if self.token:
+                    # Update token in params if it was explicitly passed
+                    if "Token" in params:
+                        params["Token"] = self.token
+                    return await self.call_api(methodName, params, is_retry=True)
             raise OmniLogicException(f"Failed to parse API response for {methodName}: {err}") from err
 
         """ ### GetMspConfigFile/Telemetry do not return a successfull status, having to catch it a different way :thumbsdown: """
